@@ -31,9 +31,9 @@ template<typename T>
 using variable_ptr = shared_ptr<variable<T>>;
 template<typename T>
 using literal_ptr = shared_ptr<literal<T>>;
-/*template<typename T>
+template<typename T>
 using function_ptr = shared_ptr<function<T>>;
-*/
+
 // a rule is a pair of terms
 //template<typename T>
 //using rule = pair<term_ptr<T>, term_ptr<T>>;
@@ -44,17 +44,17 @@ using function_ptr = shared_ptr<function<T>>;
 
 //variables in terms
 variable_ptr<bool> b_v() {return make_shared<variable<bool>>(variable<bool>("v"));}
-//variable_ptr<bool> b_w() {return make_shared<variable<bool>>(variable<bool>("w"));}
-//variable_ptr<bool> b_x() {return make_shared<variable<bool>>(variable<bool>("x"));}
-//variable_ptr<bool> b_y() {return make_shared<variable<bool>>(variable<bool>("y"));}
-//variable_ptr<bool> b_z() {return make_shared<variable<bool>>(variable<bool>("z"));}
+variable_ptr<bool> b_w() {return make_shared<variable<bool>>(variable<bool>("w"));}
+variable_ptr<bool> b_x() {return make_shared<variable<bool>>(variable<bool>("x"));}
+variable_ptr<bool> b_y() {return make_shared<variable<bool>>(variable<bool>("y"));}
+variable_ptr<bool> b_z() {return make_shared<variable<bool>>(variable<bool>("z"));}
 
 //literal values
 literal_ptr<bool> b_true() {return make_shared<literal<bool>>(literal<bool>(true));}
-//literal_ptr<bool> b_false() {return make_shared<literal<bool>>(literal<bool>(false));}
+literal_ptr<bool> b_false() {return make_shared<literal<bool>>(literal<bool>(false));}
 
 //functions
-/*
+
 function_ptr<bool> b_and(term_ptr<bool> x, term_ptr<bool> y)
 {
     return make_shared<function<bool>>(function<bool>("&&", 2, {x, y}));
@@ -71,7 +71,7 @@ function_ptr<bool> b_arrow(term_ptr<bool> x, term_ptr<bool> y)
 {
     return make_shared<function<bool>>(function<bool>("->", 2, {x,y}));
 }
-*/
+
 
 //variables for rules (to make sure there's no overlap)
 //variables for rewrite rules are a and b
@@ -81,12 +81,6 @@ function_ptr<bool> b_arrow(term_ptr<bool> x, term_ptr<bool> y)
 // the rule ->(a, false) => !(a)
 //rule<bool> contra{ make_pair(b_arrow(b_a(), b_false()), b_not(b_a())) };
 
-// the actual terms we'll be using
-//term_ptr<bool> b1 = b_or(b_and(b_x(), b_false()), b_y());
-//term_ptr<bool> b2 = b_or(b_and(b_true(), b_x()), b_arrow(b_or(b_v(), b_w()), b_false()));
-
-
-
 /////////////////////////////////
 // substitution
 /////////////////////////////////
@@ -94,6 +88,12 @@ function_ptr<bool> b_arrow(term_ptr<bool> x, term_ptr<bool> y)
 
 int main()
 {
+
+    // the actual terms we'll be using
+    term_ptr<bool> b1 = b_or(b_and(b_x(), b_false()), b_y());
+    term_ptr<bool> b2 = b_or(b_and(b_true(), b_x()), b_arrow(b_or(b_v(), b_w()), b_false()));
+
+
     cout << "print a var b_v" << endl;
     for(auto &t : *b_v()){
         cout << t << endl;
@@ -101,12 +101,12 @@ int main()
     for(auto &t : *b_true()){
         cout << t << endl;
     }
-    /*
+
     cout << "print term b1" << endl;
     for(auto& t : *b1)
     {
         cout << t << endl;
-    }*/
+    }
 //    cout << "print term b2 backwards" << endl;
     //for(auto t = b2->rbegin(); t != b2->rend(); t++)
 //    {

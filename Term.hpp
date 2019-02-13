@@ -43,12 +43,17 @@ public:
 };
 
 template<typename T>
-class term_iterator{
+class term_iterator: public std::enable_shared_from_this<term_iterator<T>>{
 private:
     std::shared_ptr< term< T > > _root;
 
     bool done{false};
-    //std::stack< term<T> > _path;
+    std::stack< term_iterator* > _its;
+    term_iterator* current_iterator;
+
+    bool isSelf(){ return _its.empty(); }
+    auto getptr(){ return this->shared_from_this(); }
+
 public:
     term_iterator(std::shared_ptr<term<T> >);
     term<T>& operator*() const;
@@ -61,6 +66,7 @@ public:
     term_iterator& operator-=(unsigned int);
     bool operator!=(const term_iterator &/*rhs*/){return !done;}
     bool operator==(const term_iterator &/*rhs*/){return done;}
+
 };
 
 /*! ***************************************************************
@@ -317,6 +323,9 @@ term_iterator<T>& term_iterator<T>::operator++(){
         if( _root->children().empty() ){
             done = true;
             return *this;
+        }else{
+            _its.push(this);
+            current_iterator = _root->children().begin();
         }
     }
 
