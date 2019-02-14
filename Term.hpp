@@ -5,6 +5,7 @@
 #include <vector>
 #include <memory>
 #include <stack>
+#include <iostream>
 
 template<typename T>
 class term_iterator;
@@ -45,7 +46,7 @@ public:
 template<typename T>
 class term_iterator{
 private:
-    std::shared_ptr< term< T > > _root;
+    term< T >* _root;
 
     bool done{false};
     std::stack< term_iterator* > _its;
@@ -57,7 +58,7 @@ private:
     unsigned int _child{0};
 
 public:
-    term_iterator(std::shared_ptr<term<T> >);
+    term_iterator(term<T>*);
     term<T>& operator*() const;
     term<T>* operator->() const;
     term_iterator& operator++();
@@ -204,26 +205,26 @@ std::ostream& variable<T>::pp(std::ostream& out) const{
 template<typename T>
 term_iterator<T> variable<T>::begin(){
     // Check for children, then move to the beginning
-    return term_iterator<T>(std::make_shared<variable<T>>(*this));
+    return term_iterator<T>(this);
 }
 
 template<typename T>
 term_iterator<T> variable<T>::cbegin() const {
     // Check for children, then move to the beginning
-    return term_iterator<T>(std::make_shared<variable<T>>(*this));
+    return term_iterator<T>(const_cast<variable<T>*>(this));
 }
 
 
 template<typename T>
 term_iterator<T> variable<T>::end(){
     // Check for children, then move to the beginning
-    return term_iterator<T>(std::make_shared<variable<T>>(*this));
+    return term_iterator<T>(this);
 }
 
 template<typename T>
 term_iterator<T> variable<T>::cend() const{
     // Check for children, then move to the beginning
-    return term_iterator<T>(std::make_shared<variable<T>>(*this));
+    return term_iterator<T>(const_cast<variable<T>*>(this));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -238,26 +239,26 @@ std::ostream& literal<T>::pp(std::ostream& out) const{
 template<typename T>
 term_iterator<T> literal<T>::begin(){
     // Check for children, then move to the beginning
-    return term_iterator<T>(std::make_shared<literal<T>>(*this));
+    return term_iterator<T>(this);
 }
 
 template<typename T>
 term_iterator<T> literal<T>::cbegin() const {
     // Check for children, then move to the beginning
-    return term_iterator<T>(std::make_shared<literal<T>>(*this));
+    return term_iterator<T>(const_cast<literal<T>*>(this));
 }
 
 
 template<typename T>
 term_iterator<T> literal<T>::end(){
     // Check for children, then move to the beginning
-    return term_iterator<T>(std::make_shared<literal<T>>(*this));
+    return term_iterator<T>(this);
 }
 
 template<typename T>
 term_iterator<T> literal<T>::cend() const{
     // Check for children, then move to the beginning
-    return term_iterator<T>(std::make_shared<literal<T>>(*this));
+    return term_iterator<T>(const_cast<literal<T>*>(this));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -274,38 +275,42 @@ function<T>::function(std::string __name, uint32_t __arity, std::vector<std::sha
 template<typename T>
 std::ostream& function<T>::pp(std::ostream& out) const{
     out << _name ;
+    for(auto& t: _subterms){
+        out <<
+    }
+    out.flush();
     return out;
 }
 template<typename T>
 term_iterator<T> function<T>::begin(){
     // Check for children, then move to the beginning
-    return term_iterator<T>(std::make_shared<function<T>>(*this));
+    return term_iterator<T>(this);
 }
 
 template<typename T>
 term_iterator<T> function<T>::cbegin() const {
     // Check for children, then move to the beginning
-    return term_iterator<T>(std::make_shared<function<T>>(*this));
+    return term_iterator<T>(const_cast<function<T>*>(this));
 }
 
 
 template<typename T>
 term_iterator<T> function<T>::end(){
     // Check for children, then move to the beginning
-    return term_iterator<T>(std::make_shared<function<T>>(*this));
+    return term_iterator<T>(this);
 }
 
 template<typename T>
 term_iterator<T> function<T>::cend() const{
     // Check for children, then move to the beginning
-    return term_iterator<T>(std::make_shared<function<T>>(*this));
+    return term_iterator<T>(const_cast<function<T>*>(this));
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Implementation: term_iterator
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<typename T>
-term_iterator<T>::term_iterator( std::shared_ptr<term<T> > __root ):
+term_iterator<T>::term_iterator( term<T>* __root ):
     _root{__root},
     current_iterator{this}
 {

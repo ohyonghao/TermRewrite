@@ -94,7 +94,7 @@ int main()
     term_ptr<bool> b1 = b_or(b_and(b_x(), b_false()), b_y());
     term_ptr<bool> b2 = b_or(b_and(b_true(), b_x()), b_arrow(b_or(b_v(), b_w()), b_false()));
 
-
+/*
     cout << "print a var b_v" << endl;
     for(auto &t : *b_v()){
         cout << t << endl;
@@ -108,7 +108,7 @@ int main()
     {
         cout << t << endl;
     }
-
+*/
     cout << "print term b1" << endl;
     for(auto& t : *b1)
     {
