@@ -37,7 +37,7 @@ public:
     virtual bool operator!=(const term<T>& rhs)=0;
     virtual bool operator==(const term<T>& rhs) = 0;
 
-    virtual std::vector< std::shared_ptr< term< T > > > children( )=0;
+    virtual std::vector< std::shared_ptr< term< T > > >& children( )=0;
 
     virtual std::ostream& pp(std::ostream&) const=0;
 
@@ -83,7 +83,8 @@ public:
     std::string var(){ return _var; }
 
     // No children, so return empty vector
-    std::vector< std::shared_ptr< term< T > > > children( ){return std::vector< std::shared_ptr< term< T > > >();}
+    std::vector< std::shared_ptr< term< T > > > _children{};
+    std::vector< std::shared_ptr< term< T > > >& children( ){return _children;}
     std::ostream& pp(std::ostream&) const;
 
     typedef T           value_type;
@@ -121,7 +122,8 @@ public:
     T& value(){return _value;}
     const T& value()const{return _value;}
     // No children, so return empty vector
-    std::vector< std::shared_ptr< term< T > > > children( ){return std::vector< std::shared_ptr< term< T > > >();}
+    std::vector< std::shared_ptr< term< T > > > _children{};
+    std::vector< std::shared_ptr< term< T > > >& children( ){return _children;}
     std::ostream& pp(std::ostream&) const;
 
     typedef T           value_type;
@@ -160,7 +162,7 @@ public:
     std::string& name(){return _name;}
     const std::string& name()const{ return _name; }
     // No children, so return empty vector
-    std::vector< std::shared_ptr< term< T > > > children( ){return _subterms;}
+    std::vector< std::shared_ptr< term< T > > >& children( ){return _subterms;}
     std::ostream& pp(std::ostream&) const;
 
     typedef T           value_type;
@@ -274,11 +276,15 @@ function<T>::function(std::string __name, uint32_t __arity, std::vector<std::sha
 
 template<typename T>
 std::ostream& function<T>::pp(std::ostream& out) const{
-    out << _name ;
-    for(auto& t: _subterms){
-        out <<
+    out << _name << std::string(" ( ");
+    for( auto t = _subterms.begin(); t != _subterms.end(); ++t ){
+        out << **t;
+
+        // Get rid of that last damn ,
+        if( std::next(t) != _subterms.end())
+            out << std::string(", ");
     }
-    out.flush();
+    out << std::string(" ) ");
     return out;
 }
 template<typename T>
@@ -345,9 +351,11 @@ term_iterator<T>& term_iterator<T>::operator++(){
         // != ignores the rhs, but we do need something there, I know, it's silly
         // After incrementing we want to check if we hit the end. If we did, then
         // pop and increment the last iterator
-        current_iterator = _its.top();
-        _its.pop();
-        return ++*this;
+        if( !_its.empty()){
+            current_iterator = _its.top();
+            _its.pop();
+            return ++*this;
+        }
     }
     return *this;
 }
