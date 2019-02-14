@@ -90,6 +90,7 @@ int main()
 {
 
     // the actual terms we'll be using
+    term_ptr<bool> b0 = b_or(b_x(), b_false());
     term_ptr<bool> b1 = b_or(b_and(b_x(), b_false()), b_y());
     term_ptr<bool> b2 = b_or(b_and(b_true(), b_x()), b_arrow(b_or(b_v(), b_w()), b_false()));
 
@@ -99,6 +100,12 @@ int main()
         cout << t << endl;
     }
     for(auto &t : *b_true()){
+        cout << t << endl;
+    }
+
+    cout << "print term b0" << endl;
+    for(auto& t : *b0)
+    {
         cout << t << endl;
     }
 

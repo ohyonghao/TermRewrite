@@ -43,7 +43,7 @@ public:
 };
 
 template<typename T>
-class term_iterator: public std::enable_shared_from_this<term_iterator<T>>{
+class term_iterator{
 private:
     std::shared_ptr< term< T > > _root;
 
@@ -51,8 +51,10 @@ private:
     std::stack< term_iterator* > _its;
     term_iterator* current_iterator;
 
-    bool isSelf(){ return _its.empty(); }
-    auto getptr(){ return this->shared_from_this(); }
+    bool isSelf()const{ return current_iterator == this; }
+    term_iterator<T>* getptr(){return this;}
+
+    unsigned int _child{0};
 
 public:
     term_iterator(std::shared_ptr<term<T> >);
@@ -66,7 +68,6 @@ public:
     term_iterator& operator-=(unsigned int);
     bool operator!=(const term_iterator &/*rhs*/){return !done;}
     bool operator==(const term_iterator &/*rhs*/){return done;}
-
 };
 
 /*! ***************************************************************
@@ -323,19 +324,25 @@ term_iterator<T>& term_iterator<T>::operator++(){
         if( _root->children().empty() ){
             done = true;
             return *this;
-        }else{
+        }else if(_child < _root->children().size()){
             _its.push(this);
-            current_iterator = _root->children().begin();
+            current_iterator = (_root->children()[_child])->begin().getptr();
+            ++_child;
+            return *current_iterator;
+        }else{
+            done = true;
+            return *this;
         }
     }
 
     // If not self, increment the iterator
-    while( ++*current_iterator != *current_iterator ){
+    if(++*current_iterator != *current_iterator ){
         // != ignores the rhs, but we do need something there, I know, it's silly
         // After incrementing we want to check if we hit the end. If we did, then
         // pop and increment the last iterator
         current_iterator = _its.top();
         _its.pop();
+        return ++*this;
     }
     return *this;
 }
@@ -343,7 +350,7 @@ term_iterator<T>& term_iterator<T>::operator++(){
 template<typename T>
 term<T>& term_iterator<T>::operator*() const
 {
-    if( _its.empty() ){
+    if( isSelf() ){
         return *_root;
     }else{
         return **current_iterator;
