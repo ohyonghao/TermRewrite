@@ -63,6 +63,7 @@ private:
     unsigned int _child{0};
 
 public:
+    term_iterator();
     term_iterator(term<T> *);
     term_iterator(const term_iterator&);
     term_iterator& operator=(const term_iterator&);
@@ -193,19 +194,19 @@ term_iterator<T> term<T>::rbegin() {
 template<typename T>
 term_iterator<T> term<T>::end(){
     // Check for children, then move to the beginning
-    return term_iterator<T>(this);
+    return term_iterator<T>();
 }
 
 template<typename T>
 term_iterator<T> term<T>::cend(){
     // Check for children, then move to the beginning
-    return term_iterator<T>(this);
+    return term_iterator<T>();
 }
 
 template<typename T>
 term_iterator<T> term<T>::rend() {
     // Check for children, then move to the end
-    return term_iterator<T>(this);
+    return term_iterator<T>();
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -310,6 +311,12 @@ std::ostream& function<T>::pp(std::ostream& out) const{
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Implementation: term_iterator
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+template<typename T>
+term_iterator<T>::term_iterator():
+    _root{nullptr},
+    done{true},
+    current_iterator{nullptr}
+{}
 
 template<typename T>
 term_iterator<T>::term_iterator( term<T>* __root ):
