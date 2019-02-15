@@ -18,9 +18,9 @@ class term
 {
 
 public:
-    typedef T           value_type;
-    typedef T*          pointer;
-    typedef T&          reference;
+    typedef term<T>           value_type;
+    typedef term<T>*          pointer;
+    typedef term<T>&          reference;
     typedef size_t      size_type;
     typedef ptrdiff_t   difference_type;
     typedef term_iterator<T>        iterator;
@@ -29,10 +29,12 @@ public:
     typedef std::reverse_iterator<iterator> reverse;
     typedef std::reverse_iterator<const_iterator> const_r;
 
-    virtual iterator begin()=0;
-    virtual iterator end()=0;
-    virtual iterator cbegin() const=0;
-    virtual iterator cend() const=0;
+    virtual iterator begin();
+    virtual iterator end();
+    virtual iterator cbegin() const;
+    virtual iterator cend() const;
+    virtual iterator rbegin();
+    virtual iterator rend();
 
     virtual bool operator!=(const term<T>& rhs)=0;
     virtual bool operator==(const term<T>& rhs) = 0;
@@ -40,6 +42,9 @@ public:
     virtual std::vector< std::shared_ptr< term< T > > >& children( )=0;
 
     virtual std::ostream& pp(std::ostream&) const=0;
+
+    term();
+    term(const term<T>& );
 
 };
 
@@ -58,7 +63,9 @@ private:
     unsigned int _child{0};
 
 public:
-    term_iterator(term<T>*);
+    term_iterator(term<T> *);
+    term_iterator(const term_iterator&);
+    term_iterator& operator=(const term_iterator&);
     term<T>& operator*() const;
     term<T>* operator->() const;
     term_iterator& operator++();
@@ -78,7 +85,9 @@ public:
 template<typename T>
 class variable: public term<T>{
 public:
-    variable(std::string __var):_var{__var}{}
+    variable(std::string __var);
+    variable( const variable<T>& );
+    variable<T>& operator=(const variable<T>&);
 
     std::string var(){ return _var; }
 
@@ -87,21 +96,6 @@ public:
     std::vector< std::shared_ptr< term< T > > >& children( ){return _children;}
     std::ostream& pp(std::ostream&) const;
 
-    typedef T           value_type;
-    typedef T*          pointer;
-    typedef T&          reference;
-    typedef size_t      size_type;
-    typedef ptrdiff_t   difference_type;
-    typedef term_iterator<T>        iterator;
-    typedef term_iterator<const T>  const_iterator;
-    typedef std::bidirectional_iterator_tag iterator_category;
-    typedef std::reverse_iterator<iterator> reverse;
-    typedef std::reverse_iterator<const_iterator> const_r;
-
-    iterator begin();
-    iterator end();
-    iterator cbegin() const;
-    iterator cend() const;
     bool operator!=(const term<T>& rhs){return !(*this == rhs);}
     bool operator==(const term<T>& /*rhs*/){return false;}
     bool operator!=(const variable<T>& rhs){return !(*this == rhs);}
@@ -118,7 +112,10 @@ private:
 template<typename T>
 class literal: public term<T>{
 public:
-    literal( T __value ):_value{__value}{}
+    literal( T __value );
+    literal( const literal<T>& );
+    literal<T>& operator=(const literal<T>&);
+
     T& value(){return _value;}
     const T& value()const{return _value;}
     // No children, so return empty vector
@@ -126,21 +123,6 @@ public:
     std::vector< std::shared_ptr< term< T > > >& children( ){return _children;}
     std::ostream& pp(std::ostream&) const;
 
-    typedef T           value_type;
-    typedef T*          pointer;
-    typedef T&          reference;
-    typedef size_t      size_type;
-    typedef ptrdiff_t   difference_type;
-    typedef term_iterator<T>        iterator;
-    typedef term_iterator<const T>  const_iterator;
-    typedef std::bidirectional_iterator_tag iterator_category;
-    typedef std::reverse_iterator<iterator> reverse;
-    typedef std::reverse_iterator<const_iterator> const_r;
-
-    iterator begin();
-    iterator end();
-    iterator cbegin() const;
-    iterator cend() const;
     bool operator!=(const term<T>& rhs){return !(*this == rhs);}
     bool operator==(const term<T>& /*rhs*/){return false;}
     bool operator!=(const variable<T>& rhs){return !(*this == rhs);}
@@ -159,27 +141,15 @@ template<typename T>
 class function: public term<T>{
 public:
     function(std::string __name, uint32_t __arity, std::vector<std::shared_ptr< term<T>>> __subterms );
+    function( const function<T>& );
+    function<T>& operator=(const function<T>&);
+
     std::string& name(){return _name;}
     const std::string& name()const{ return _name; }
     // No children, so return empty vector
     std::vector< std::shared_ptr< term< T > > >& children( ){return _subterms;}
     std::ostream& pp(std::ostream&) const;
 
-    typedef T           value_type;
-    typedef T*          pointer;
-    typedef T&          reference;
-    typedef size_t      size_type;
-    typedef ptrdiff_t   difference_type;
-    typedef term_iterator<T>        iterator;
-    typedef term_iterator<const T>  const_iterator;
-    typedef std::bidirectional_iterator_tag iterator_category;
-    typedef std::reverse_iterator<iterator> reverse;
-    typedef std::reverse_iterator<const_iterator> const_r;
-
-    iterator begin();
-    iterator end();
-    iterator cbegin() const;
-    iterator cend() const;
     bool operator!=(const term<T>& rhs){return !(*this == rhs);}
     bool operator==(const term<T>& /*rhs*/){return false;}
     bool operator!=(const function<T>& rhs){return !(*this == rhs);}
@@ -195,84 +165,133 @@ private:
 /// Implementation: Term
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+template<typename T>
+term<T>::term(){}
+
+template<typename T>
+term<T>::term(const term<T>&){}
+
+
+template<typename T>
+term_iterator<T> term<T>::begin(){
+    // Check for children, then move to the beginning
+    return term_iterator<T>(this);
+}
+
+template<typename T>
+term_iterator<T> term<T>::cbegin() const {
+    // Check for children, then move to the beginning
+    return term_iterator<T>(const_cast<term<T>*>(this));
+}
+
+template<typename T>
+term_iterator<T> term<T>::rbegin() {
+    // Check for children, then move to the end
+    return term_iterator<T>(this);
+}
+
+template<typename T>
+term_iterator<T> term<T>::end(){
+    // Check for children, then move to the beginning
+    return term_iterator<T>(this);
+}
+
+template<typename T>
+term_iterator<T> term<T>::cend() const{
+    // Check for children, then move to the beginning
+    return term_iterator<T>(const_cast<term<T>*>(this));
+}
+
+template<typename T>
+term_iterator<T> term<T>::rend() {
+    // Check for children, then move to the end
+    return term_iterator<T>(this);
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Implementation: Variable
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+template<typename T>
+variable<T>::variable(std::string __var):
+    _var{__var}
+{
+}
+
+template<typename T>
+variable<T>::variable(const variable<T>& c ):
+    term<T>{c},
+    _var{c._var}
+{
+}
+
+template<typename T>
+variable<T>& variable<T>::operator=(const variable<T>& rhs)
+{
+    _var = rhs._var;
+}
 
 template<typename T>
 std::ostream& variable<T>::pp(std::ostream& out) const{
     out << _var;
     return out;
 }
-template<typename T>
-term_iterator<T> variable<T>::begin(){
-    // Check for children, then move to the beginning
-    return term_iterator<T>(this);
-}
-
-template<typename T>
-term_iterator<T> variable<T>::cbegin() const {
-    // Check for children, then move to the beginning
-    return term_iterator<T>(const_cast<variable<T>*>(this));
-}
-
-
-template<typename T>
-term_iterator<T> variable<T>::end(){
-    // Check for children, then move to the beginning
-    return term_iterator<T>(this);
-}
-
-template<typename T>
-term_iterator<T> variable<T>::cend() const{
-    // Check for children, then move to the beginning
-    return term_iterator<T>(const_cast<variable<T>*>(this));
-}
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Implementation: Literal
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+template<typename T>
+literal<T>::literal( T __value ):
+    _value{__value}
+{
+}
+
+template<typename T>
+literal<T>::literal(const literal<T>& c ):
+    term<T>{c},
+    _value{c._value}
+{
+}
+
+template<typename T>
+literal<T>& literal<T>::operator=(const literal<T>& rhs)
+{
+    _value = rhs._value;
+}
 
 template<typename T>
 std::ostream& literal<T>::pp(std::ostream& out) const{
     out << _value;
     return out;
 }
-template<typename T>
-term_iterator<T> literal<T>::begin(){
-    // Check for children, then move to the beginning
-    return term_iterator<T>(this);
-}
-
-template<typename T>
-term_iterator<T> literal<T>::cbegin() const {
-    // Check for children, then move to the beginning
-    return term_iterator<T>(const_cast<literal<T>*>(this));
-}
-
-
-template<typename T>
-term_iterator<T> literal<T>::end(){
-    // Check for children, then move to the beginning
-    return term_iterator<T>(this);
-}
-
-template<typename T>
-term_iterator<T> literal<T>::cend() const{
-    // Check for children, then move to the beginning
-    return term_iterator<T>(const_cast<literal<T>*>(this));
-}
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Implementation: Function
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<typename T>
 function<T>::function(std::string __name, uint32_t __arity, std::vector<std::shared_ptr< term<T>>> __subterms ):
+    term<T>{},
     _name{__name},
     _arity{__arity},
     _subterms{__subterms}
 {}
+
+template<typename T>
+function<T>::function(const function<T>& c ):
+    term<T>{c},
+    _name{c._name},
+    _arity{c._arity},
+    _subterms{c._subterms}
+{
+}
+
+template<typename T>
+function<T>& function<T>::operator=(const function<T>& rhs)
+{
+    _name = rhs._name;
+    _arity = rhs._arity;
+    _subterms = rhs._subterms;
+}
 
 template<typename T>
 std::ostream& function<T>::pp(std::ostream& out) const{
@@ -287,30 +306,7 @@ std::ostream& function<T>::pp(std::ostream& out) const{
     out << std::string(" ) ");
     return out;
 }
-template<typename T>
-term_iterator<T> function<T>::begin(){
-    // Check for children, then move to the beginning
-    return term_iterator<T>(this);
-}
 
-template<typename T>
-term_iterator<T> function<T>::cbegin() const {
-    // Check for children, then move to the beginning
-    return term_iterator<T>(const_cast<function<T>*>(this));
-}
-
-
-template<typename T>
-term_iterator<T> function<T>::end(){
-    // Check for children, then move to the beginning
-    return term_iterator<T>(this);
-}
-
-template<typename T>
-term_iterator<T> function<T>::cend() const{
-    // Check for children, then move to the beginning
-    return term_iterator<T>(const_cast<function<T>*>(this));
-}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Implementation: term_iterator
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -320,6 +316,22 @@ term_iterator<T>::term_iterator( term<T>* __root ):
     _root{__root},
     current_iterator{this}
 {
+}
+
+template<typename T>
+term_iterator<T>::term_iterator( const term_iterator& c ):
+    _root{c._root},
+    current_iterator{this},
+    _child{c._child}
+{
+}
+
+template<typename T>
+term_iterator<T>& term_iterator<T>::operator=( const term_iterator& rhs )
+{
+    _root = rhs._root;
+    current_iterator = this;
+    _child = rhs._child;
 }
 
 // I'm thinking that for this I want to use a stack with pairs that are the term and
@@ -356,10 +368,18 @@ term_iterator<T>& term_iterator<T>::operator++(){
             _its.pop();
             return ++*this;
         }
+    }else{
+        done = true;
     }
     return *this;
 }
 
+template<typename T>
+term_iterator<T> term_iterator<T>::operator++(int){
+    auto temp = *this;
+    ++*this;
+    return temp;
+}
 template<typename T>
 term<T>& term_iterator<T>::operator*() const
 {

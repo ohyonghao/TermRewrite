@@ -94,7 +94,6 @@ int main()
     term_ptr<bool> b1 = b_or(b_and(b_x(), b_false()), b_y());
     term_ptr<bool> b2 = b_or(b_and(b_true(), b_x()), b_arrow(b_or(b_v(), b_w()), b_false()));
 
-/*
     cout << "print a var b_v" << endl;
     for(auto &t : *b_v()){
         cout << t << endl;
@@ -108,17 +107,17 @@ int main()
     {
         cout << t << endl;
     }
-*/
+
     cout << "print term b1" << endl;
     for(auto& t : *b1)
     {
         cout << t << endl;
     }
-//    cout << "print term b2 backwards" << endl;
-    //for(auto t = b2->rbegin(); t != b2->rend(); t++)
-//    {
-        //cout << *t << endl;
-//    }
+    cout << "print term b2 backwards" << endl;
+    for(auto t = b2->rbegin(); t != b2->rend(); t++)
+    {
+        cout << *t << endl;
+    }
 
     // make the substitution [a :-> or(v,w)]
 //    Sub<bool> sigma;
