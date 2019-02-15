@@ -18,16 +18,17 @@ class term
 {
 
 public:
-    typedef term<T>           value_type;
-    typedef term<T>*          pointer;
-    typedef term<T>&          reference;
-    typedef size_t      size_type;
-    typedef ptrdiff_t   difference_type;
-    typedef term_iterator<T>        iterator;
-    typedef term_iterator<const T>  const_iterator;
-    typedef std::bidirectional_iterator_tag iterator_category;
-    typedef std::reverse_iterator<iterator> reverse;
-    typedef std::reverse_iterator<const_iterator> const_r;
+    typedef term<T>                                 value_type;
+    typedef term<T>*                                pointer;
+    typedef term<T>&                                reference;
+    typedef size_t                                  size_type;
+    typedef ptrdiff_t                               difference_type;
+    typedef std::bidirectional_iterator_tag         iterator_category;
+    typedef term_iterator<T>                        iterator;
+    typedef term_iterator<const T>                  const_iterator;
+    typedef std::reverse_iterator<iterator>         reverse_iterator;
+    typedef std::reverse_iterator<const_iterator>   const_reverse_iterator;
+
 
     virtual iterator begin();
     virtual iterator end();
@@ -174,37 +175,31 @@ term<T>::term(const term<T>&){}
 
 template<typename T>
 term_iterator<T> term<T>::begin(){
-    // Check for children, then move to the beginning
     return term_iterator<T>(this);
 }
 
 template<typename T>
 term_iterator<T> term<T>::cbegin() {
-    // Check for children, then move to the beginning
     return term_iterator<T>(this);
 }
 
 template<typename T>
 term_iterator<T> term<T>::rbegin() {
-    // Check for children, then move to the end
     return term_iterator<T>(this);
 }
 
 template<typename T>
 term_iterator<T> term<T>::end(){
-    // Check for children, then move to the beginning
     return term_iterator<T>();
 }
 
 template<typename T>
 term_iterator<T> term<T>::cend(){
-    // Check for children, then move to the beginning
     return term_iterator<T>();
 }
 
 template<typename T>
 term_iterator<T> term<T>::rend() {
-    // Check for children, then move to the end
     return term_iterator<T>();
 }
 
