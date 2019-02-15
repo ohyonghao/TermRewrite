@@ -4,8 +4,10 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <iterator>
 #include <stack>
 #include <iostream>
+#include <algorithm>
 
 template<typename T>
 class term_iterator;
@@ -29,13 +31,12 @@ public:
     typedef std::reverse_iterator<iterator>         reverse_iterator;
     typedef std::reverse_iterator<const_iterator>   const_reverse_iterator;
 
-
-    virtual iterator begin();
-    virtual iterator end();
-    virtual iterator cbegin();
-    virtual iterator cend();
-    virtual iterator rbegin();
-    virtual iterator rend();
+    iterator begin(){return iterator(this);}
+    iterator end(){return iterator(this,true);}
+    iterator cbegin(){return iterator(this);}
+    iterator cend(){return iterator(this,true);}
+    iterator rbegin(){return iterator(this,false,true);}
+    iterator rend(){return iterator(this,true,true);}
 
     virtual bool operator!=(const term<T>& rhs)=0;
     virtual bool operator==(const term<T>& rhs) = 0;
@@ -49,6 +50,20 @@ public:
 };
 
 template<typename T>
+struct std::iterator_traits<term_iterator<T>>
+{
+    typedef term<T>                                 value_type;
+    typedef term<T>*                                pointer;
+    typedef term<T>&                                reference;
+    typedef size_t                                  size_type;
+    typedef ptrdiff_t                               difference_type;
+    typedef std::bidirectional_iterator_tag         iterator_category;
+    typedef term_iterator<T>                        iterator;
+    typedef term_iterator<const T>                  const_iterator;
+    typedef std::reverse_iterator<iterator>         reverse_iterator;
+    typedef std::reverse_iterator<const_iterator>   const_reverse_iterator;
+};
+template<typename T>
 class term_iterator{
 private:
     term< T >* _root;
@@ -61,19 +76,19 @@ private:
 
 public:
     term_iterator();
-    term_iterator(term<T> *);
+    term_iterator(term<T> *, bool end=false, bool reverse=false);
     term_iterator(const term_iterator&);
     term_iterator& operator=(const term_iterator&);
-    term<T>& operator*() const;
-    term<T>* operator->() const;
-    term_iterator& operator++();
-    term_iterator& operator--();
-    term_iterator operator++(int);
-    term_iterator operator--(int);
+    term<T>& operator*(){ return **current_iterator;}
+    term<T>* operator->(){ return &*current_iterator;}
+    term_iterator& operator++(){++current_iterator; return *this;}
+    term_iterator& operator--(){--current_iterator; return *this;}
+    term_iterator operator++(int){ auto temp = *this; ++*this; return temp;}
+    term_iterator operator--(int){ auto temp = *this; --*this; return temp;}
     term_iterator& operator+=(unsigned int);
     term_iterator& operator-=(unsigned int);
-    bool operator!=(const term_iterator &rhs){return (!(*this == rhs) && (current_iterator != _path.end()));}
-    bool operator==(const term_iterator &rhs){return _path == rhs._path;}
+    bool operator!=(const term_iterator &rhs)const{return !(!(*this == rhs) || (current_iterator == _path.end()));}
+    bool operator==(const term_iterator &rhs)const{return _path == rhs._path;}
 };
 
 /*! ***************************************************************
@@ -168,37 +183,6 @@ term<T>::term(){}
 
 template<typename T>
 term<T>::term(const term<T>&){}
-
-
-template<typename T>
-term_iterator<T> term<T>::begin(){
-    return term_iterator<T>(this);
-}
-
-template<typename T>
-term_iterator<T> term<T>::cbegin() {
-    return term_iterator<T>(this);
-}
-
-template<typename T>
-term_iterator<T> term<T>::rbegin() {
-    return term_iterator<T>(this);
-}
-
-template<typename T>
-term_iterator<T> term<T>::end(){
-    return term_iterator<T>();
-}
-
-template<typename T>
-term_iterator<T> term<T>::cend(){
-    return term_iterator<T>();
-}
-
-template<typename T>
-term_iterator<T> term<T>::rend() {
-    return term_iterator<T>();
-}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Implementation: Variable
@@ -319,13 +303,16 @@ term_iterator<T>::term_iterator():
 }
 
 template<typename T>
-term_iterator<T>::term_iterator( term<T>* __root ):
+term_iterator<T>::term_iterator(term<T>* __root, bool end , bool reverse):
     _root{__root},
     _path{},
     current_iterator{}
 {
     _loadpath(_root);
-    current_iterator = _path.begin();
+    if( reverse ){
+        std::reverse(_path.begin(), _path.end());
+    }
+    current_iterator = end? _path.end() : _path.begin();
 }
 
 template<typename T>
@@ -352,27 +339,6 @@ term_iterator<T>& term_iterator<T>::operator=( const term_iterator& rhs )
     _path = rhs._path;
     current_iterator = rhs.current_iterator;
     return *this;
-}
-
-// I'm thinking that for this I want to use a stack with pairs that are the term and
-// the child that I am on, most might be 1. Alternatively we might store iterators on the stack
-// instead.
-template<typename T>
-term_iterator<T>& term_iterator<T>::operator++(){
-    ++current_iterator;
-    return *this;
-}
-
-template<typename T>
-term_iterator<T> term_iterator<T>::operator++(int){
-    auto temp = *this;
-    ++*this;
-    return temp;
-}
-template<typename T>
-term<T>& term_iterator<T>::operator*() const
-{
-    return **current_iterator;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
