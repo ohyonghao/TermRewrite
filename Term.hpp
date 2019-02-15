@@ -53,12 +53,9 @@ class term_iterator{
 private:
     term< T >* _root;
 
-    bool done{false};
-    std::shared_ptr<term_iterator> _child_ptr;
-    term_iterator* current_iterator;
-
-    bool isSelf()const{ return current_iterator == this; }
-    term_iterator<T>* getptr(){return this;}
+    std::vector<term<T>*> _path;
+    decltype(std::vector<term<T>*>().begin()) current_iterator;
+    void _loadpath(term<T>*);
 
     unsigned int _child{0};
 
@@ -75,8 +72,8 @@ public:
     term_iterator operator--(int);
     term_iterator& operator+=(unsigned int);
     term_iterator& operator-=(unsigned int);
-    bool operator!=(const term_iterator &/*rhs*/){return !done;}
-    bool operator==(const term_iterator &/*rhs*/){return done;}
+    bool operator!=(const term_iterator &rhs){return (!(*this == rhs) && (current_iterator != _path.end()));}
+    bool operator==(const term_iterator &rhs){return _path == rhs._path;}
 };
 
 /*! ***************************************************************
@@ -315,26 +312,36 @@ std::ostream& function<T>::pp(std::ostream& out) const{
 template<typename T>
 term_iterator<T>::term_iterator():
     _root{nullptr},
-    done{true},
-    current_iterator{nullptr},
-    _child{0}
-{}
+    _path{},
+    current_iterator{_path.begin()}
+{
+
+}
 
 template<typename T>
 term_iterator<T>::term_iterator( term<T>* __root ):
     _root{__root},
-    done{false},
-    current_iterator{this},
-    _child{0}
+    _path{},
+    current_iterator{}
 {
+    _loadpath(_root);
+    current_iterator = _path.begin();
+}
+
+template<typename T>
+void term_iterator<T>::_loadpath(term<T>* tptr )
+{
+    _path.push_back(tptr);
+    for(auto& t: tptr->children()){
+        _loadpath(t.get());
+    }
 }
 
 template<typename T>
 term_iterator<T>::term_iterator( const term_iterator& c ):
     _root{c._root},
-    done{c.done},
-    current_iterator{this},
-    _child{c._child}
+    _path{c._path},
+    current_iterator{c.current_iterator}
 {
 }
 
@@ -342,8 +349,8 @@ template<typename T>
 term_iterator<T>& term_iterator<T>::operator=( const term_iterator& rhs )
 {
     _root = rhs._root;
-    current_iterator = this;
-    _child = rhs._child;
+    _path = rhs._path;
+    current_iterator = rhs.current_iterator;
     return *this;
 }
 
@@ -352,35 +359,7 @@ term_iterator<T>& term_iterator<T>::operator=( const term_iterator& rhs )
 // instead.
 template<typename T>
 term_iterator<T>& term_iterator<T>::operator++(){
-    // If we've set the done flag, don't do anything
-    if( done ){
-        *this = _root->end();
-    }
-    if(isSelf()){
-        if( _root->children().empty() ){
-            done = true;
-            return *this;
-        }else if(_child < _root->children().size()){
-            _child_ptr = std::make_shared<term_iterator<T>> ((_root->children()[_child])->begin());
-
-            current_iterator = _child_ptr.get();
-            return *current_iterator;
-        }else{
-            done = true;
-            return *this;
-        }
-    }
-
-    // If not self, increment the iterator
-    if(++*current_iterator != *current_iterator ){
-        // != ignores the rhs, but we do need something there, I know, it's silly
-        // After incrementing we want to check if we hit the end.
-        return *current_iterator;
-    }else{
-        ++_child;
-        current_iterator = this;
-        return ++*this;
-    }
+    ++current_iterator;
     return *this;
 }
 
@@ -393,11 +372,7 @@ term_iterator<T> term_iterator<T>::operator++(int){
 template<typename T>
 term<T>& term_iterator<T>::operator*() const
 {
-    if( isSelf() ){
-        return *_root;
-    }else{
-        return **current_iterator;
-    }
+    return **current_iterator;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
