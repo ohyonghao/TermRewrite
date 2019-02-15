@@ -45,6 +45,7 @@ public:
 
     term();
     term(const term<T>& );
+    virtual term<T>* clone() const=0;
 
 };
 
@@ -54,7 +55,6 @@ private:
     term< T >* _root;
 
     bool done{false};
-    std::stack< term_iterator* > _its;
     term_iterator* current_iterator;
 
     bool isSelf()const{ return current_iterator == this; }
@@ -89,6 +89,7 @@ public:
     variable(std::string __var);
     variable( const variable<T>& );
     variable<T>& operator=(const variable<T>&);
+    term<T>* clone() const{ return new variable<T>(*this);}
 
     std::string var(){ return _var; }
 
@@ -116,6 +117,7 @@ public:
     literal( T __value );
     literal( const literal<T>& );
     literal<T>& operator=(const literal<T>&);
+    term<T>* clone()const{ return new literal<T>(*this);}
 
     T& value(){return _value;}
     const T& value()const{return _value;}
@@ -144,6 +146,7 @@ public:
     function(std::string __name, uint32_t __arity, std::vector<std::shared_ptr< term<T>>> __subterms );
     function( const function<T>& );
     function<T>& operator=(const function<T>&);
+    term<T>* clone()const{ return new function<T>(*this);}
 
     std::string& name(){return _name;}
     const std::string& name()const{ return _name; }
@@ -220,9 +223,9 @@ variable<T>::variable(std::string __var):
 }
 
 template<typename T>
-variable<T>::variable(const variable<T>& c ):
-    term<T>{c},
-    _var{c._var}
+variable<T>::variable(const variable<T>& rhs ):
+    term<T>{rhs},
+    _var{rhs._var}
 {
 }
 
@@ -282,8 +285,12 @@ function<T>::function(const function<T>& c ):
     term<T>{c},
     _name{c._name},
     _arity{c._arity},
-    _subterms{c._subterms}
+    _subterms{}
 {
+    _subterms.reserve(c._subterms.size());
+    for(auto& t :c._subterms ){
+        _subterms.push_back(std::shared_ptr<term<T>>(t->clone()));
+    }
 }
 
 template<typename T>
@@ -291,7 +298,10 @@ function<T>& function<T>::operator=(const function<T>& rhs)
 {
     _name = rhs._name;
     _arity = rhs._arity;
-    _subterms = rhs._subterms;
+
+    for(auto& t :rhs._subterms ){
+        _subterms.push_back(std::shared_ptr<term<T>>(t->clone()));
+    }
 }
 
 template<typename T>
@@ -315,19 +325,23 @@ template<typename T>
 term_iterator<T>::term_iterator():
     _root{nullptr},
     done{true},
-    current_iterator{nullptr}
+    current_iterator{nullptr},
+    _child{0}
 {}
 
 template<typename T>
 term_iterator<T>::term_iterator( term<T>* __root ):
     _root{__root},
-    current_iterator{this}
+    done{false},
+    current_iterator{this},
+    _child{0}
 {
 }
 
 template<typename T>
 term_iterator<T>::term_iterator( const term_iterator& c ):
     _root{c._root},
+    done{c.done},
     current_iterator{this},
     _child{c._child}
 {
@@ -355,8 +369,8 @@ term_iterator<T>& term_iterator<T>::operator++(){
             done = true;
             return *this;
         }else if(_child < _root->children().size()){
-            _its.push(this);
-            current_iterator = (_root->children()[_child])->begin().getptr();
+            current_iterator = new term_iterator<T> ((_root->children()[_child])->begin());
+
             ++_child;
             return *current_iterator;
         }else{
@@ -370,11 +384,8 @@ term_iterator<T>& term_iterator<T>::operator++(){
         // != ignores the rhs, but we do need something there, I know, it's silly
         // After incrementing we want to check if we hit the end. If we did, then
         // pop and increment the last iterator
-        if( !_its.empty()){
-            current_iterator = _its.top();
-            _its.pop();
-            return ++*this;
-        }
+        current_iterator = this;
+        return ++*this;
     }else{
         done = true;
     }
@@ -404,6 +415,7 @@ term<T>& term_iterator<T>::operator*() const
 template<typename T>
 std::ostream& operator<<(std::ostream& out, const term<T>& rhs ){
     rhs.pp( out );
+    out.flush();
     return out;
 }
 #endif // TERM_HPP

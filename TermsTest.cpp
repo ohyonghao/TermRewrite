@@ -113,11 +113,17 @@ int main()
     {
         cout << t << endl;
     }
-    cout << "print term b2 backwards" << endl;
-    for(auto t = b2->rbegin(); t != b2->rend(); t++)
+
+    cout << "print term b2 forwards" << endl;
+    for(auto t = b2->begin(); t != b2->end(); t++)
     {
         cout << *t << endl;
     }
+//    cout << "print term b2 backwards" << endl;
+//    for(auto t = b2->rbegin(); t != b2->rend(); t++)
+//    {
+//        cout << *t << endl;
+//    }
 
     // make the substitution [a :-> or(v,w)]
 //    Sub<bool> sigma;
