@@ -45,8 +45,6 @@ public:
 
     term();
     term(const term<T>& );
-    virtual term<T>* clone() const=0;
-
 };
 
 template<typename T>
@@ -55,6 +53,7 @@ private:
     term< T >* _root;
 
     bool done{false};
+    std::shared_ptr<term_iterator> _child_ptr;
     term_iterator* current_iterator;
 
     bool isSelf()const{ return current_iterator == this; }
@@ -89,7 +88,6 @@ public:
     variable(std::string __var);
     variable( const variable<T>& );
     variable<T>& operator=(const variable<T>&);
-    term<T>* clone() const{ return new variable<T>(*this);}
 
     std::string var(){ return _var; }
 
@@ -117,7 +115,6 @@ public:
     literal( T __value );
     literal( const literal<T>& );
     literal<T>& operator=(const literal<T>&);
-    term<T>* clone()const{ return new literal<T>(*this);}
 
     T& value(){return _value;}
     const T& value()const{return _value;}
@@ -146,7 +143,6 @@ public:
     function(std::string __name, uint32_t __arity, std::vector<std::shared_ptr< term<T>>> __subterms );
     function( const function<T>& );
     function<T>& operator=(const function<T>&);
-    term<T>* clone()const{ return new function<T>(*this);}
 
     std::string& name(){return _name;}
     const std::string& name()const{ return _name; }
@@ -289,7 +285,7 @@ function<T>::function(const function<T>& c ):
 {
     _subterms.reserve(c._subterms.size());
     for(auto& t :c._subterms ){
-        _subterms.push_back(std::shared_ptr<term<T>>(t->clone()));
+        _subterms.push_back(std::shared_ptr<term<T>>(t));
     }
 }
 
@@ -300,7 +296,7 @@ function<T>& function<T>::operator=(const function<T>& rhs)
     _arity = rhs._arity;
 
     for(auto& t :rhs._subterms ){
-        _subterms.push_back(std::shared_ptr<term<T>>(t->clone()));
+        _subterms.push_back(std::shared_ptr<term<T>>(t));
     }
 }
 
@@ -370,7 +366,9 @@ term_iterator<T>& term_iterator<T>::operator++(){
             done = true;
             return *this;
         }else if(_child < _root->children().size()){
-            current_iterator = new term_iterator<T> ((_root->children()[_child])->begin());
+            _child_ptr = std::make_shared<term_iterator<T>> ((_root->children()[_child])->begin());
+
+            current_iterator = _child_ptr.get();
             return *current_iterator;
         }else{
             done = true;
