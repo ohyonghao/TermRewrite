@@ -353,6 +353,7 @@ term_iterator<T>& term_iterator<T>::operator=( const term_iterator& rhs )
     _root = rhs._root;
     current_iterator = this;
     _child = rhs._child;
+    return *this;
 }
 
 // I'm thinking that for this I want to use a stack with pairs that are the term and
@@ -362,7 +363,7 @@ template<typename T>
 term_iterator<T>& term_iterator<T>::operator++(){
     // If we've set the done flag, don't do anything
     if( done ){
-        return *this;
+        *this = _root->end();
     }
     if(isSelf()){
         if( _root->children().empty() ){
@@ -370,8 +371,6 @@ term_iterator<T>& term_iterator<T>::operator++(){
             return *this;
         }else if(_child < _root->children().size()){
             current_iterator = new term_iterator<T> ((_root->children()[_child])->begin());
-
-            ++_child;
             return *current_iterator;
         }else{
             done = true;
@@ -382,12 +381,12 @@ term_iterator<T>& term_iterator<T>::operator++(){
     // If not self, increment the iterator
     if(++*current_iterator != *current_iterator ){
         // != ignores the rhs, but we do need something there, I know, it's silly
-        // After incrementing we want to check if we hit the end. If we did, then
-        // pop and increment the last iterator
+        // After incrementing we want to check if we hit the end.
+        return *current_iterator;
+    }else{
+        ++_child;
         current_iterator = this;
         return ++*this;
-    }else{
-        done = true;
     }
     return *this;
 }
