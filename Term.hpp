@@ -31,8 +31,8 @@ public:
 
     virtual iterator begin();
     virtual iterator end();
-    virtual iterator cbegin() const;
-    virtual iterator cend() const;
+    virtual iterator cbegin();
+    virtual iterator cend();
     virtual iterator rbegin();
     virtual iterator rend();
 
@@ -179,9 +179,9 @@ term_iterator<T> term<T>::begin(){
 }
 
 template<typename T>
-term_iterator<T> term<T>::cbegin() const {
+term_iterator<T> term<T>::cbegin() {
     // Check for children, then move to the beginning
-    return term_iterator<T>(const_cast<term<T>*>(this));
+    return term_iterator<T>(this);
 }
 
 template<typename T>
@@ -197,9 +197,9 @@ term_iterator<T> term<T>::end(){
 }
 
 template<typename T>
-term_iterator<T> term<T>::cend() const{
+term_iterator<T> term<T>::cend(){
     // Check for children, then move to the beginning
-    return term_iterator<T>(const_cast<term<T>*>(this));
+    return term_iterator<T>(this);
 }
 
 template<typename T>
