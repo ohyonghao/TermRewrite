@@ -24,7 +24,8 @@ SOURCES += \
     TermsTest.cpp
 
 HEADERS += \
-    Term.hpp
+    Term.hpp \
+    sub.hpp
 
 unix {
     target.path = /usr/lib

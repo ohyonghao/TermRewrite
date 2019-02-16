@@ -8,9 +8,38 @@
 #include <stack>
 #include <iostream>
 #include <algorithm>
+#include <type_traits>
+#include <deque>
+#include <exception>
+#include "sub.hpp"
+
+template<typename T>
+class function;
+template<typename T>
+class literal;
+template<typename T>
+class variable;
+
+template<typename T>
+using term_ptr = std::shared_ptr<term<T>>;
+template<typename T>
+using variable_ptr = std::shared_ptr<variable<T>>;
+template<typename T>
+using literal_ptr = std::shared_ptr<literal<T>>;
+template<typename T>
+using function_ptr = std::shared_ptr<function<T>>;
+
+typedef std::deque<uint32_t> path;
 
 template<typename T>
 class term_iterator;
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Exceptions
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+class InvalidPathException: public std::exception
+{public: inline const char * what() const noexcept{ return "InvalidPath";}};
 
 /*!
  * \brief Class Term, base class for terms
@@ -20,6 +49,7 @@ class term
 {
 
 public:
+    typedef term<T>                                 type;
     typedef term<T>                                 value_type;
     typedef term<T>*                                pointer;
     typedef term<T>&                                reference;
@@ -43,10 +73,18 @@ public:
 
     virtual std::vector< std::shared_ptr< term< T > > >& children( )=0;
 
+    term_ptr<T> rewrite(term_ptr<T>, path, Sub<T>);
+    virtual term_ptr<T> rewrite(term_ptr<T>, Sub<T>)=0;
     virtual std::ostream& pp(std::ostream&) const=0;
+
+    virtual term_ptr<T> clone() const = 0;
 
     term();
     term(const term<T>& );
+
+private:
+
+    term_ptr<T> rewrite(term_ptr<T> t, term_ptr<T>, path, Sub<T>);
 };
 
 template<typename T>
@@ -85,7 +123,7 @@ public:
     term_iterator& operator--(){--current_iterator; return *this;}
     term_iterator operator++(int){ auto temp = *this; ++*this; return temp;}
     term_iterator operator--(int){ auto temp = *this; --*this; return temp;}
-    term_iterator& operator+=(unsigned int);
+    term_iterator& operator+=(unsigned int i){current_iterator+=i; return *this;}
     term_iterator& operator-=(unsigned int);
     bool operator!=(const term_iterator &rhs)const{return !(!(*this == rhs) || (current_iterator == _path.end()));}
     bool operator==(const term_iterator &rhs)const{return _path == rhs._path;}
@@ -104,10 +142,11 @@ public:
 
     std::string var(){ return _var; }
 
-    // No children, so return empty vector
     std::vector< std::shared_ptr< term< T > > > _children{};
     std::vector< std::shared_ptr< term< T > > >& children( ){return _children;}
+    std::shared_ptr<term<T>> rewrite(std::shared_ptr<term<T>>, Sub<T>);
     std::ostream& pp(std::ostream&) const;
+    term_ptr<T> clone() const{return std::make_shared<variable>(*this);}
 
     bool operator!=(const term<T>& rhs){return !(*this == rhs);}
     bool operator==(const term<T>& /*rhs*/){return false;}
@@ -131,10 +170,12 @@ public:
 
     T& value(){return _value;}
     const T& value()const{return _value;}
-    // No children, so return empty vector
+
     std::vector< std::shared_ptr< term< T > > > _children{};
     std::vector< std::shared_ptr< term< T > > >& children( ){return _children;}
+    std::shared_ptr<term<T>> rewrite(std::shared_ptr<term<T>>, Sub<T>);
     std::ostream& pp(std::ostream&) const;
+    term_ptr<T> clone() const{return std::make_shared<literal>(*this);}
 
     bool operator!=(const term<T>& rhs){return !(*this == rhs);}
     bool operator==(const term<T>& /*rhs*/){return false;}
@@ -159,9 +200,11 @@ public:
 
     std::string& name(){return _name;}
     const std::string& name()const{ return _name; }
-    // No children, so return empty vector
+
     std::vector< std::shared_ptr< term< T > > >& children( ){return _subterms;}
+    std::shared_ptr<term<T>> rewrite(std::shared_ptr<term<T>>, Sub<T>);
     std::ostream& pp(std::ostream&) const;
+    term_ptr<T> clone() const{return std::make_shared<function>(*this);}
 
     bool operator!=(const term<T>& rhs){return !(*this == rhs);}
     bool operator==(const term<T>& /*rhs*/){return false;}
@@ -185,6 +228,35 @@ template<typename T>
 term<T>::term(const term<T>&){}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+/// rewrite & unify
+////////////////////////////////////////////////////////////////////////////////////////////////////
+template<typename T>
+term_ptr<T> term<T>::rewrite(term_ptr<T> r, path p, Sub<T> sigma){
+    term_ptr<T> t = this->clone();
+    return rewrite(t, r, p, sigma);
+}
+template<typename T>
+term_ptr<T> term<T>::rewrite(term_ptr<T> t, term_ptr<T> r, path p, Sub<T> sigma){
+    if( p.empty() )
+    {
+        throw InvalidPathException();
+    }
+    auto pos = p.front();
+    if( pos >= t->children().size()){
+        throw InvalidPathException();
+    }
+    p.pop_front();
+    auto child = t->children()[pos];
+    if( p.empty() ){
+        t->children()[pos] = child->rewrite( r, sigma );
+    }else{
+        t->children()[pos] = child->rewrite( r, p, sigma );
+    }
+
+    return t;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Implementation: Variable
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -205,6 +277,12 @@ template<typename T>
 variable<T>& variable<T>::operator=(const variable<T>& rhs)
 {
     _var = rhs._var;
+}
+
+template<typename T>
+term_ptr<T> variable<T>::rewrite(term_ptr<T> t, Sub<T> sigma){
+    sigma.extend(this->_var, t);
+    return t;
 }
 
 template<typename T>
@@ -233,6 +311,11 @@ template<typename T>
 literal<T>& literal<T>::operator=(const literal<T>& rhs)
 {
     _value = rhs._value;
+}
+
+template<typename T>
+term_ptr<T> literal<T>::rewrite(term_ptr<T> t, Sub<T> /*sigma*/){
+    return t;
 }
 
 template<typename T>
@@ -274,6 +357,11 @@ function<T>& function<T>::operator=(const function<T>& rhs)
     for(auto& t :rhs._subterms ){
         _subterms.push_back(std::shared_ptr<term<T>>(t));
     }
+}
+
+template<typename T>
+term_ptr<T> function<T>::rewrite(term_ptr<T> t, Sub<T> /*sigma*/){
+    return t;
 }
 
 template<typename T>
@@ -351,4 +439,10 @@ std::ostream& operator<<(std::ostream& out, const term<T>& rhs ){
     out.flush();
     return out;
 }
+
+
+//template<typename T, typename Sub>
+//bool unify(term<T> t1, term<T> t2, Sub& sigma);
+
+
 #endif // TERM_HPP

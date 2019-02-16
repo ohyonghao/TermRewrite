@@ -25,18 +25,9 @@ using namespace std;
 // I'm making everything with shared pointers, because
 // we have to use pointers or references to do inheritance
 //
-//template<typename T>
-//using term_ptr = shared_ptr<term<T>>;
-template<typename T>
-using variable_ptr = shared_ptr<variable<T>>;
-template<typename T>
-using literal_ptr = shared_ptr<literal<T>>;
-template<typename T>
-using function_ptr = shared_ptr<function<T>>;
-
 // a rule is a pair of terms
-//template<typename T>
-//using rule = pair<term_ptr<T>, term_ptr<T>>;
+template<typename T>
+using rule = pair<term_ptr<T>, term_ptr<T>>;
 
 /////////////////////////////////
 // Boolean algebra
@@ -75,11 +66,8 @@ function_ptr<bool> b_arrow(term_ptr<bool> x, term_ptr<bool> y)
 
 //variables for rules (to make sure there's no overlap)
 //variables for rewrite rules are a and b
-//variable_ptr<bool> b_a() {return make_shared<variable<bool>>(variable<bool>("a"));}
-//variable_ptr<bool> b_b() {return make_shared<variable<bool>>(variable<bool>("b"));}
-
-// the rule ->(a, false) => !(a)
-//rule<bool> contra{ make_pair(b_arrow(b_a(), b_false()), b_not(b_a())) };
+variable_ptr<bool> b_a() {return make_shared<variable<bool>>(variable<bool>("a"));}
+variable_ptr<bool> b_b() {return make_shared<variable<bool>>(variable<bool>("b"));}
 
 /////////////////////////////////
 // substitution
@@ -126,19 +114,21 @@ int main()
     {
         cout << *t << endl;
     }
+    // the rule ->(a, false) => !(a)
+    rule<bool> contra{ make_pair(b_arrow(b_a(), b_false()), b_not(b_a())) };
 
     // make the substitution [a :-> or(v,w)]
-//    Sub<bool> sigma;
-//    sigma.extend("a", b_or(b_v(),b_w()));
+    Sub<bool> sigma;
+    sigma.extend("a", b_or(b_v(),b_w()));
 
-//    cout << "rewrite " << b1 << " with " << contra.second << endl;
+    cout << "rewrite " << *b1 << " with " << *contra.second << endl;
 
     // now use the rule ->(a, false) => !(a) to rewrite
     // or(and(true,x), arrow(or(v,w), false)) to
     // or(and(true,x), not(or(v,w)))
-//    term_ptr<bool> b1r = b1->rewrite(*contra.second, {2}, sigma);
+    term_ptr<bool> b1r = b1->rewrite(contra.second, {1}, sigma);
 
-//    cout << b1r << endl;
+    cout << *b1r << endl;
 
     // can I unify b1 with b2?
 //    Sub<bool> s;
