@@ -82,38 +82,38 @@ int main()
     term_ptr<bool> b1 = b_or(b_and(b_x(), b_false()), b_y());
     term_ptr<bool> b2 = b_or(b_and(b_true(), b_x()), b_arrow(b_or(b_v(), b_w()), b_false()));
 
-    cout << "print a var b_v" << endl;
-    for(auto &t : *b_v()){
-        cout << t << endl;
-    }
-    for(auto &t : *b_true()){
-        cout << t << endl;
-    }
+//    cout << "print a var b_v" << endl;
+//    for(auto &t : *b_v()){
+//        cout << t << endl;
+//    }
+//    for(auto &t : *b_true()){
+//        cout << t << endl;
+//    }
 
-    cout << "print term b0" << endl;
-    for(auto& t : *b0)
-    {
-        cout << t << endl;
-    }
+//    cout << "print term b0" << endl;
+//    for(auto& t : *b0)
+//    {
+//        cout << t << endl;
+//    }
 
-    cout << "print term b1" << endl;
-    for(auto& t : *b1)
-    {
-        cout << t << endl;
-    }
+//    cout << "print term b1" << endl;
+//    for(auto& t : *b1)
+//    {
+//        cout << t << endl;
+//    }
 
-    cout << "print term b2 forwards" << endl;
-    for(auto t = b2->cbegin(); t != b2->cend(); t++)
-    {
-        cout << *t << endl;
-    }
+//    cout << "print term b2 forwards" << endl;
+//    for(auto t = b2->cbegin(); t != b2->cend(); t++)
+//    {
+//        cout << *t << endl;
+//    }
 
-    cout << "print term b2 backwards" << endl;
-    auto _t = b2->rbegin();
-    for(auto t = b2->rbegin(); t != b2->rend(); t++)
-    {
-        cout << *t << endl;
-    }
+//    cout << "print term b2 backwards" << endl;
+//    auto _t = b2->rbegin();
+//    for(auto t = b2->rbegin(); t != b2->rend(); t++)
+//    {
+//        cout << *t << endl;
+//    }
     // the rule ->(a, false) => !(a)
     rule<bool> contra{ make_pair(b_arrow(b_a(), b_false()), b_not(b_a())) };
 
@@ -126,14 +126,16 @@ int main()
     // now use the rule ->(a, false) => !(a) to rewrite
     // or(and(true,x), arrow(or(v,w), false)) to
     // or(and(true,x), not(or(v,w)))
-    term_ptr<bool> b1r = b1->rewrite(contra.second, {1}, sigma);
+    term_ptr<bool> b1r = b1->rewrite(contra.second, {2}, sigma);
 
     cout << *b1r << endl;
 
+    cout << *b1 << endl << *b2 << endl;
     // can I unify b1 with b2?
-//    Sub<bool> s;
-//    cout << "unifying b1 with b2? " << unify(*b1,*b2,s) << endl;
-//    s.print();
+    Sub<bool> s;
+    cout << "unifying b1 with b2? "
+         << unify(*b1,*b2,s) << endl;
+    s.print();
 
     return 0;
 }

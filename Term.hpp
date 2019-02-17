@@ -11,6 +11,7 @@
 #include <type_traits>
 #include <deque>
 #include <exception>
+#include <utility>
 #include "sub.hpp"
 
 template<typename T>
@@ -69,22 +70,26 @@ public:
     iterator rend(){return iterator(this,true,true);}
 
     virtual bool operator!=(const term<T>& rhs)=0;
-    virtual bool operator==(const term<T>& rhs) = 0;
+    virtual bool operator==(const term<T>& rhs)=0;
+
+    virtual bool isVariable( ){return false;}
+    virtual bool isLiteral ( ){return false;}
+    virtual bool isFunction( ){return false;}
 
     virtual std::vector< std::shared_ptr< term< T > > >& children( )=0;
 
     term_ptr<T> rewrite(term_ptr<T>, path, Sub<T>);
-    virtual term_ptr<T> rewrite(term_ptr<T>, Sub<T>)=0;
+    virtual term_ptr<T> rewrite(Sub<T>&) = 0;
     virtual std::ostream& pp(std::ostream&) const=0;
 
     virtual term_ptr<T> clone() const = 0;
 
-    term();
-    term(const term<T>& );
+    term(){}
 
 private:
 
-    term_ptr<T> rewrite(term_ptr<T> t, term_ptr<T>, path, Sub<T>);
+    term_ptr<T> rewrite(term_ptr<T> t, term_ptr<T> r, path p);
+
 };
 
 template<typename T>
@@ -140,11 +145,14 @@ public:
     variable( const variable<T>& );
     variable<T>& operator=(const variable<T>&);
 
+    // Move symantics
+    variable( const variable<T>&& );
+    variable<T>& operator=(const variable<T>&&);
+
     std::string var(){ return _var; }
 
-    std::vector< std::shared_ptr< term< T > > > _children{};
-    std::vector< std::shared_ptr< term< T > > >& children( ){return _children;}
-    std::shared_ptr<term<T>> rewrite(std::shared_ptr<term<T>>, Sub<T>);
+    std::vector< term_ptr<T> > _children{};
+    std::vector< term_ptr<T> >& children( ){return _children;}
     std::ostream& pp(std::ostream&) const;
     term_ptr<T> clone() const{return std::make_shared<variable>(*this);}
 
@@ -152,6 +160,10 @@ public:
     bool operator==(const term<T>& /*rhs*/){return false;}
     bool operator!=(const variable<T>& rhs){return !(*this == rhs);}
     bool operator==(const variable<T>& rhs){return _var == rhs._var;}
+
+    term_ptr<T> rewrite(Sub<T> &sigma);
+
+    bool isVariable(){return true;}
 
 private:
     std::string _var;
@@ -168,6 +180,10 @@ public:
     literal( const literal<T>& );
     literal<T>& operator=(const literal<T>&);
 
+    // move symantics
+    literal( const literal<T>&& );
+    literal<T>& operator=(const literal<T>&&);
+
     T& value(){return _value;}
     const T& value()const{return _value;}
 
@@ -181,8 +197,11 @@ public:
     bool operator==(const term<T>& /*rhs*/){return false;}
     bool operator!=(const variable<T>& rhs){return !(*this == rhs);}
     bool operator==(const variable<T>& rhs){return _value == rhs._value;}
-private:
 
+    term_ptr<T> rewrite(Sub<T>&);
+    bool isLiteral( ){return true;}
+
+private:
     T _value;
 };
 
@@ -198,11 +217,13 @@ public:
     function( const function<T>& );
     function<T>& operator=(const function<T>&);
 
+    function( const function<T>&&);
+    function<T>& operator=(const function<T>&&);
+
     std::string& name(){return _name;}
     const std::string& name()const{ return _name; }
 
     std::vector< std::shared_ptr< term< T > > >& children( ){return _subterms;}
-    std::shared_ptr<term<T>> rewrite(std::shared_ptr<term<T>>, Sub<T>);
     std::ostream& pp(std::ostream&) const;
     term_ptr<T> clone() const{return std::make_shared<function>(*this);}
 
@@ -210,6 +231,10 @@ public:
     bool operator==(const term<T>& /*rhs*/){return false;}
     bool operator!=(const function<T>& rhs){return !(*this == rhs);}
     bool operator==(const function<T>& rhs){return _name == rhs._name && _arity == rhs._arity && _subterms == rhs._subterms;}
+
+    term_ptr<T> rewrite(Sub<T> &);
+    bool isFunction( ){return true;}
+
 private:
     std::string _name;
     uint32_t _arity;
@@ -221,36 +246,34 @@ private:
 /// Implementation: Term
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-template<typename T>
-term<T>::term(){}
-
-template<typename T>
-term<T>::term(const term<T>&){}
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// rewrite & unify
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 template<typename T>
-term_ptr<T> term<T>::rewrite(term_ptr<T> r, path p, Sub<T> sigma){
+term_ptr<T> term<T>::rewrite(term_ptr<T> rhs, path p, Sub<T> sigma){
     term_ptr<T> t = this->clone();
-    return rewrite(t, r, p, sigma);
+    term_ptr<T> r = rhs->clone();
+    // Rewrite the r now, and then screw sigma
+    r = r->rewrite(sigma);
+    return rewrite(t, r, p);
 }
 template<typename T>
-term_ptr<T> term<T>::rewrite(term_ptr<T> t, term_ptr<T> r, path p, Sub<T> sigma){
+term_ptr<T> term<T>::rewrite(term_ptr<T> t, term_ptr<T> r, path p){
     if( p.empty() )
     {
         throw InvalidPathException();
     }
     auto pos = p.front();
-    if( pos >= t->children().size()){
+    if( pos == 0 || pos > t->children().size() ){
         throw InvalidPathException();
     }
+    --pos;
     p.pop_front();
     auto child = t->children()[pos];
     if( p.empty() ){
-        t->children()[pos] = child->rewrite( r, sigma );
+        t->children()[pos] = r;
     }else{
-        t->children()[pos] = child->rewrite( r, p, sigma );
+        t->children()[pos] = child->rewrite(child, r, p );
     }
 
     return t;
@@ -274,15 +297,22 @@ variable<T>::variable(const variable<T>& rhs ):
 }
 
 template<typename T>
-variable<T>& variable<T>::operator=(const variable<T>& rhs)
+variable<T>::variable(const variable<T>&& rhs ):
+    term<T>{rhs},
+    _var{std::move(rhs._var)}
+{
+}
+
+template<typename T>
+variable<T>& variable<T>::operator=(const variable<T>&& rhs )
 {
     _var = rhs._var;
 }
 
 template<typename T>
-term_ptr<T> variable<T>::rewrite(term_ptr<T> t, Sub<T> sigma){
-    sigma.extend(this->_var, t);
-    return t;
+variable<T>& variable<T>::operator=(const variable<T>& rhs)
+{
+    _var = rhs._var;
 }
 
 template<typename T>
@@ -290,6 +320,12 @@ std::ostream& variable<T>::pp(std::ostream& out) const{
     out << _var;
     return out;
 }
+
+template<typename T>
+term_ptr<T> variable<T>::rewrite(Sub<T>& sigma){
+    return sigma(_var).clone();
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Implementation: Literal
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -314,14 +350,27 @@ literal<T>& literal<T>::operator=(const literal<T>& rhs)
 }
 
 template<typename T>
-term_ptr<T> literal<T>::rewrite(term_ptr<T> t, Sub<T> /*sigma*/){
-    return t;
+literal<T>::literal(const literal<T>&& rhs ):
+    term<T>{rhs},
+    _value{std::move(rhs._value)}
+{
+}
+
+template<typename T>
+literal<T>& literal<T>::operator=(const literal<T>&& rhs )
+{
+    this->_value = std::move(rhs._value);
 }
 
 template<typename T>
 std::ostream& literal<T>::pp(std::ostream& out) const{
     out << _value;
     return out;
+}
+
+template<typename T>
+term_ptr<T> literal<T>::rewrite(Sub<T> &){
+    return this->clone();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Implementation: Function
@@ -344,7 +393,7 @@ function<T>::function(const function<T>& c ):
 {
     _subterms.reserve(c._subterms.size());
     for(auto& t :c._subterms ){
-        _subterms.push_back(std::shared_ptr<term<T>>(t));
+        _subterms.push_back(term_ptr<T>(t));
     }
 }
 
@@ -355,14 +404,26 @@ function<T>& function<T>::operator=(const function<T>& rhs)
     _arity = rhs._arity;
 
     for(auto& t :rhs._subterms ){
-        _subterms.push_back(std::shared_ptr<term<T>>(t));
+        _subterms.push_back(term_ptr<T>(t));
     }
 }
 
 template<typename T>
-term_ptr<T> function<T>::rewrite(term_ptr<T> t, Sub<T> /*sigma*/){
-    return t;
+function<T>::function(const function<T>&& rhs ):
+    _name{std::move(rhs._name)},
+    _arity{rhs._arity},
+    _subterms{std::move(rhs._subterms)}
+{
 }
+
+template<typename T>
+function<T>& function<T>::operator=(const function<T>&& rhs )
+{
+    _name = rhs._name;
+    _arity = rhs._arity;
+    _subterms = rhs._subterms;
+}
+
 
 template<typename T>
 std::ostream& function<T>::pp(std::ostream& out) const{
@@ -378,6 +439,13 @@ std::ostream& function<T>::pp(std::ostream& out) const{
     return out;
 }
 
+template<typename T>
+term_ptr<T> function<T>::rewrite(Sub<T>& sigma){
+    for( auto&s : _subterms){
+        s = s->rewrite(sigma);
+    }
+    return this->clone();
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Implementation: term_iterator
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -441,8 +509,59 @@ std::ostream& operator<<(std::ostream& out, const term<T>& rhs ){
 }
 
 
-//template<typename T, typename Sub>
-//bool unify(term<T> t1, term<T> t2, Sub& sigma);
+template<typename T, typename Sub>
+bool unify(term<T>& t1, term<T>& t2, Sub& sigma){
 
+    if( t1.isVariable() ){
+        return unify(static_cast<variable<T>&>(t1), t2, sigma);
+    }
+    if( t2.isVariable() ){
+        return unify(static_cast<variable<T>&>(t2), t1, sigma);
+    }
+    if( t1.isLiteral() && t2.isLiteral() ){
+        return ( t1 == t2 );
+    }
+    if( t1.isFunction() && t2.isFunction() ){
+        return unify( static_cast<function<T>&>(t1), static_cast<function<T>&>(t2), sigma);
+    }
+    return false;
+}
+
+template<typename T, typename Sub>
+bool unify(function<T>& t1, function<T>& t2, Sub& sigma){
+    // iterate through both, probably recursively, then stuff the unification into the sigma.
+    // It is a set of rules, so we can put it into the sigma by using extend?
+
+    // We want to iterate over both at the same time.
+
+    if( t1.name() != t2.name() || t1.children().size() != t2.children().size() ){
+        return false;
+    }
+    auto it1 = t1.children().begin();
+    auto it2 = t2.children().begin();
+
+    bool unifies = true;
+    for(; it1 != t1.children().end() && unifies; ++it1, ++it2){
+        unifies = unify( **it1, **it2, sigma);
+    }
+
+    return unifies;
+}
+
+template<typename T, typename Sub>
+bool unify(literal<T>& t1, literal<T>& t2, Sub& ){
+    return ( t1 == t2);
+}
+
+template<typename T, typename Sub>
+bool unify( variable<T>& t1, variable<T>& t2, Sub& sigma ){
+    sigma.extend( t1.var(), t2);
+    return true;
+}
+template<typename T, typename Sub>
+bool unify( variable<T>& t1, term<T>& t2, Sub& sigma ){
+    sigma.extend( t1.var(), t2.clone() );
+    return true;
+}
 
 #endif // TERM_HPP

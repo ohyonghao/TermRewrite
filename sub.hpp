@@ -43,7 +43,7 @@ public:
         std::cout << "[" << std::endl;
         for(std::pair<std::string, term_ptr<T>> p : _map)
         {
-            //std::cout << p.first << " :-> " << *p.second << std::endl;
+            std::cout << p.first << " :-> " << *p.second << std::endl;
         }
         std::cout << "]" << std::endl;
     }
