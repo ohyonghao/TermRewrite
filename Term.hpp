@@ -30,6 +30,9 @@ using literal_ptr = std::shared_ptr<literal<T>>;
 template<typename T>
 using function_ptr = std::shared_ptr<function<T>>;
 
+template<typename T>
+using rule = std::pair<term_ptr<T>, term_ptr<T>>;
+
 typedef std::deque<uint32_t> path;
 
 template<typename T>
@@ -40,7 +43,10 @@ class term_iterator;
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 class InvalidPathException: public std::exception
-{public: inline const char * what() const noexcept{ return "InvalidPath";}};
+{public: const char * what() const noexcept{ return "Invalid Path, you do not pass go, do not collect $200";}};
+
+class InvalidRuleException: public std::exception
+{public: const char * what() const noexcept{ return "Invalid Rule";}};
 
 /*!
  * \brief Class Term, base class for terms
@@ -69,17 +75,20 @@ public:
     iterator rbegin(){return iterator(this,false,true);}
     iterator rend(){return iterator(this,true,true);}
 
-    virtual bool operator!=(const term<T>& rhs)=0;
-    virtual bool operator==(const term<T>& rhs)=0;
+    virtual bool operator!=(const term<T>& /*rhs*/)const{return true;}
+    virtual bool operator==(const term<T>& /*rhs*/)const{return false;}
 
-    virtual bool isVariable( ){return false;}
-    virtual bool isLiteral ( ){return false;}
-    virtual bool isFunction( ){return false;}
+    virtual bool isVariable( )const{return false;}
+    virtual bool isLiteral ( )const{return false;}
+    virtual bool isFunction( )const{return false;}
 
     virtual std::vector< std::shared_ptr< term< T > > >& children( )=0;
 
     term_ptr<T> rewrite(term_ptr<T>, path, Sub<T>);
     virtual term_ptr<T> rewrite(Sub<T>&) = 0;
+
+    virtual bool find_path(path& p, term<T>& t)=0;
+
     virtual std::ostream& pp(std::ostream&) const=0;
 
     virtual term_ptr<T> clone() const = 0;
@@ -156,14 +165,21 @@ public:
     std::ostream& pp(std::ostream&) const;
     term_ptr<T> clone() const{return std::make_shared<variable>(*this);}
 
-    bool operator!=(const term<T>& rhs){return !(*this == rhs);}
-    bool operator==(const term<T>& /*rhs*/){return false;}
-    bool operator!=(const variable<T>& rhs){return !(*this == rhs);}
-    bool operator==(const variable<T>& rhs){return _var == rhs._var;}
+    bool operator!=(const term<T>& rhs)const {return !(*this == rhs);}
+    bool operator==(const term<T>& rhs)const{
+        if(rhs.isVariable()){
+            return *this == static_cast<const variable<T>&>(rhs);
+        }
+        return false;
+    }
+    bool operator!=(const variable<T>& rhs)const{return !(*this == rhs);}
+    bool operator==(const variable<T>& rhs)const{return _var == rhs._var;}
 
     term_ptr<T> rewrite(Sub<T> &sigma);
 
-    bool isVariable(){return true;}
+    bool find_path(path& p, term<T>& t);
+
+    bool isVariable()const{return true;}
 
 private:
     std::string _var;
@@ -193,13 +209,20 @@ public:
     std::ostream& pp(std::ostream&) const;
     term_ptr<T> clone() const{return std::make_shared<literal>(*this);}
 
-    bool operator!=(const term<T>& rhs){return !(*this == rhs);}
-    bool operator==(const term<T>& /*rhs*/){return false;}
-    bool operator!=(const variable<T>& rhs){return !(*this == rhs);}
-    bool operator==(const variable<T>& rhs){return _value == rhs._value;}
+    bool operator!=(const term<T>& rhs)const{return !(*this == rhs);}
+    bool operator==(const term<T>& rhs)const{
+        if(rhs.isLiteral()){
+            //return *this == static_cast<const literal<T>&>(rhs);
+            return _value == static_cast<const literal<T>&>(rhs)._value;
+        }
+        return false;
+    }
+    bool operator!=(const literal<T>& rhs)const{return !(*this == rhs);}
+    bool operator==(const literal<T>& rhs)const{return _value == rhs._value;}
 
     term_ptr<T> rewrite(Sub<T>&);
-    bool isLiteral( ){return true;}
+    bool find_path(path& p, term<T> &t);
+    bool isLiteral( )const{return true;}
 
 private:
     T _value;
@@ -227,13 +250,21 @@ public:
     std::ostream& pp(std::ostream&) const;
     term_ptr<T> clone() const{return std::make_shared<function>(*this);}
 
-    bool operator!=(const term<T>& rhs){return !(*this == rhs);}
-    bool operator==(const term<T>& /*rhs*/){return false;}
-    bool operator!=(const function<T>& rhs){return !(*this == rhs);}
-    bool operator==(const function<T>& rhs){return _name == rhs._name && _arity == rhs._arity && _subterms == rhs._subterms;}
+    bool operator!=(const term<T>& rhs)const{return !(*this == rhs);}
+    bool operator==(const term<T>& rhs)const{
+        if(rhs.isFunction()){
+            return *this == static_cast<const function<T>&>(rhs);
+        }
+        return false;
+    }
+    bool operator!=(const function<T>& rhs)const{return !(*this == rhs);}
+    bool operator==(const function<T>& rhs)const{return _name == rhs._name && _arity == rhs._arity && _subterms == rhs._subterms;}
 
     term_ptr<T> rewrite(Sub<T> &);
-    bool isFunction( ){return true;}
+
+    bool find_path(path& p, term<T>& t);
+
+    bool isFunction( )const{return true;}
 
 private:
     std::string _name;
@@ -326,6 +357,14 @@ term_ptr<T> variable<T>::rewrite(Sub<T>& sigma){
     return sigma(_var).clone();
 }
 
+template<typename T>
+bool variable<T>::find_path(path& /*p*/, term<T> &t){
+    bool found = false;
+    if(t.isVariable()){
+        found = (*this == static_cast<variable<T>&>(t));
+    }
+    return found;
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Implementation: Literal
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -371,6 +410,15 @@ std::ostream& literal<T>::pp(std::ostream& out) const{
 template<typename T>
 term_ptr<T> literal<T>::rewrite(Sub<T> &){
     return this->clone();
+}
+
+template<typename T>
+bool literal<T>::find_path(path& /*p*/, term<T>& t){
+    bool found = false;
+    if(t.isLiteral()){
+        found = (*this == static_cast<literal<T>&>(t));
+    }
+    return found;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Implementation: Function
@@ -445,6 +493,28 @@ term_ptr<T> function<T>::rewrite(Sub<T>& sigma){
         s = s->rewrite(sigma);
     }
     return this->clone();
+}
+
+template<typename T>
+bool function<T>::find_path(path& p, term<T> &t){
+    bool found = false;
+    if(t.isFunction()){
+        found = (*this == static_cast<function<T>&>(t));
+    }
+
+    if( !found ){
+        uint32_t steps = 0;
+        for(auto& i: _subterms){
+            ++steps;
+            found = i->find_path(p, t);
+            if(found){
+                // Load from front as we'll be doing this on the way back
+                p.push_front(steps);
+                break;
+            }
+        }
+    }
+    return found;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Implementation: term_iterator
@@ -548,6 +618,10 @@ bool unify(function<T>& t1, function<T>& t2, Sub& sigma){
     return unifies;
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Unify
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 template<typename T, typename Sub>
 bool unify(literal<T>& t1, literal<T>& t2, Sub& ){
     return ( t1 == t2);
@@ -562,6 +636,41 @@ template<typename T, typename Sub>
 bool unify( variable<T>& t1, term<T>& t2, Sub& sigma ){
     sigma.extend( t1.var(), t2.clone() );
     return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Reduce
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+template<typename T>
+term_ptr<T> reduce(term_ptr<T> t, const std::vector<rule<T>>& rules)
+{
+    term_ptr<T> ret = t->clone();
+    // First unify the term with each rule
+
+    // We want to load the sigma with changes
+    for(auto& r: rules)
+    {
+        Sub<T> sigma;
+
+        // Something wrong with this algorithm
+        for(auto& subterm: *t){
+            // Skip variables, we don't like 'em.
+            if(subterm.isVariable())
+                continue;
+            if( unify( subterm, *(r.first), sigma) ){
+                // Find path to here
+
+                path p;
+                ret->find_path(p, subterm);
+                ret = ret->rewrite(r.second, p, sigma);
+                break;
+            }
+             //subterm = r.second->clone();
+        }
+    }
+
+    return ret;
 }
 
 #endif // TERM_HPP

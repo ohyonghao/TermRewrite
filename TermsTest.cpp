@@ -26,9 +26,6 @@ using namespace std;
 // we have to use pointers or references to do inheritance
 //
 // a rule is a pair of terms
-template<typename T>
-using rule = pair<term_ptr<T>, term_ptr<T>>;
-
 /////////////////////////////////
 // Boolean algebra
 /////////////////////////////////
@@ -121,21 +118,26 @@ int main()
     Sub<bool> sigma;
     sigma.extend("a", b_or(b_v(),b_w()));
 
-    cout << "rewrite " << *b1 << " with " << *contra.second << endl;
+//    cout << "rewrite " << *b1 << " with " << *contra.second << endl;
 
     // now use the rule ->(a, false) => !(a) to rewrite
     // or(and(true,x), arrow(or(v,w), false)) to
     // or(and(true,x), not(or(v,w)))
-    term_ptr<bool> b1r = b1->rewrite(contra.second, {2}, sigma);
+//    term_ptr<bool> b1r = b1->rewrite(contra.second, {2}, sigma);
 
-    cout << *b1r << endl;
+//    cout << *b1r << endl;
 
-    cout << *b1 << endl << *b2 << endl;
-    // can I unify b1 with b2?
-    Sub<bool> s;
-    cout << "unifying b1 with b2? "
-         << unify(*b1,*b2,s) << endl;
-    s.print();
+//    cout << *b1 << endl << *b2 << endl;
+//    // can I unify b1 with b2?
+//    Sub<bool> s;
+//    cout << "unifying b1 with b2? "
+//         << unify(*b1,*b2,s) << endl;
+//    s.print();
 
+    vector<rule<bool>> rules;
+    rules.push_back(contra);
+    cout << "Now reduce b2 with contra" << endl;
+    cout << *b2 << endl;
+    cout << *reduce( b2, rules ) << endl;
     return 0;
 }

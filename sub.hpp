@@ -47,5 +47,11 @@ public:
         }
         std::cout << "]" << std::endl;
     }
+
+    auto begin(){return _map.begin();}
+    auto end(){return _map.end();}
+    auto cbegin(){return _map.cbegin();}
+    auto cend(){return _map.cend();}
 };
+
 #endif // SUB_HPP
