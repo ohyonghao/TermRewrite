@@ -68,6 +68,11 @@ public:
     typedef std::reverse_iterator<iterator>         reverse_iterator;
     typedef std::reverse_iterator<const_iterator>   const_reverse_iterator;
 
+    // Our base class constructor
+
+    term(){}
+
+    // Our iterators
     iterator begin(){return iterator(this);}
     iterator end(){return iterator(this,true);}
     iterator cbegin(){return iterator(this);}
@@ -75,25 +80,29 @@ public:
     iterator rbegin(){return iterator(this,false,true);}
     iterator rend(){return iterator(this,true,true);}
 
+    // Operators
     virtual bool operator!=(const term<T>& /*rhs*/)const{return true;}
     virtual bool operator==(const term<T>& /*rhs*/)const{return false;}
 
+    // Eh, pains me to write, base class shouldn't know anything about
+    // derived classes
     virtual bool isVariable( )const{return false;}
     virtual bool isLiteral ( )const{return false;}
     virtual bool isFunction( )const{return false;}
 
-    virtual std::vector< std::shared_ptr< term< T > > >& children( )=0;
-
-    term_ptr<T> rewrite(term_ptr<T>, path, Sub<T>);
-    virtual term_ptr<T> rewrite(Sub<T>&) = 0;
-
+    // Find a specific term and build its path
     virtual bool find_path(path& p, term<T>& t)=0;
 
+    // Utility functions
     virtual std::ostream& pp(std::ostream&) const=0;
-
     virtual term_ptr<T> clone() const = 0;
 
-    term(){}
+    // Does anyone thing of the children?
+    virtual std::vector< term_ptr<T> >& children( )=0;
+
+    // Rewrite routines
+            term_ptr<T> rewrite(term_ptr<T>, path, Sub<T>);
+    virtual term_ptr<T> rewrite(Sub<T>&) = 0;
 
 private:
 
@@ -115,21 +124,16 @@ struct std::iterator_traits<term_iterator<T>>
     typedef std::reverse_iterator<iterator>         reverse_iterator;
     typedef std::reverse_iterator<const_iterator>   const_reverse_iterator;
 };
+
 template<typename T>
 class term_iterator{
-private:
-    term< T >* _root;
-
-    std::vector<term<T>*> _path;
-    decltype(std::vector<term<T>*>().begin()) current_iterator;
-    void _loadpath(term<T>*);
-
-    unsigned int _child{0};
-
 public:
+    // Our constructors
     term_iterator();
     term_iterator(term<T> *, bool end=false, bool reverse=false);
     term_iterator(const term_iterator&);
+
+    // Our operators
     term_iterator& operator=(const term_iterator&);
     term<T>& operator*(){ return **current_iterator;}
     term<T>* operator->(){ return &*current_iterator;}
@@ -141,6 +145,20 @@ public:
     term_iterator& operator-=(unsigned int);
     bool operator!=(const term_iterator &rhs)const{return !(!(*this == rhs) || (current_iterator == _path.end()));}
     bool operator==(const term_iterator &rhs)const{return _path == rhs._path;}
+
+private:
+    // Used in construction to flatten the tree
+    void _loadpath(term<T>*);
+
+    // The term we are iterating over
+    term< T >* _root;
+
+    // Our flattened tree
+    std::vector<term<T>*> _path;
+
+    // This will hold the iterator from _path, the rest of the
+    // iterator is a wrapper around this
+    decltype(std::vector<term<T>*>().begin()) current_iterator;
 };
 
 /*! ***************************************************************
@@ -150,6 +168,7 @@ public:
 template<typename T>
 class variable: public term<T>{
 public:
+    // Our Constructors
     variable(std::string __var);
     variable( const variable<T>& );
     variable<T>& operator=(const variable<T>&);
@@ -158,13 +177,14 @@ public:
     variable( const variable<T>&& );
     variable<T>& operator=(const variable<T>&&);
 
+    // Var
     std::string var(){ return _var; }
 
-    std::vector< term_ptr<T> > _children{};
-    std::vector< term_ptr<T> >& children( ){return _children;}
+    // Utility Functions
     std::ostream& pp(std::ostream&) const;
     term_ptr<T> clone() const{return std::make_shared<variable>(*this);}
 
+    // Our operators
     bool operator!=(const term<T>& rhs)const {return !(*this == rhs);}
     bool operator==(const term<T>& rhs)const{
         if(rhs.isVariable()){
@@ -175,13 +195,18 @@ public:
     bool operator!=(const variable<T>& rhs)const{return !(*this == rhs);}
     bool operator==(const variable<T>& rhs)const{return _var == rhs._var;}
 
+    // Rewrite
     term_ptr<T> rewrite(Sub<T> &sigma);
 
+    // Utility
     bool find_path(path& p, term<T>& t);
-
     bool isVariable()const{return true;}
 
+    std::vector< term_ptr<T> >& children( ){return _children;}
+
 private:
+    // We have no children
+    std::vector< term_ptr<T> > _children{};
     std::string _var;
 };
 
@@ -200,18 +225,21 @@ public:
     literal( const literal<T>&& );
     literal<T>& operator=(const literal<T>&&);
 
+    // Our values
     T& value(){return _value;}
     const T& value()const{return _value;}
 
-    std::vector< std::shared_ptr< term< T > > > _children{};
-    std::vector< std::shared_ptr< term< T > > >& children( ){return _children;}
-    std::shared_ptr<term<T>> rewrite(std::shared_ptr<term<T>>, Sub<T>);
+    std::vector< term_ptr<T> > _children{};
+    std::vector< term_ptr<T> >& children( ){return _children;}
+    term_ptr<T> rewrite(term_ptr<T>, Sub<T>);
     std::ostream& pp(std::ostream&) const;
     term_ptr<T> clone() const{return std::make_shared<literal>(*this);}
 
+    // Our operators
     bool operator!=(const term<T>& rhs)const{return !(*this == rhs);}
     bool operator==(const term<T>& rhs)const{
         if(rhs.isLiteral()){
+            // Silly thing calls this function again
             //return *this == static_cast<const literal<T>&>(rhs);
             return _value == static_cast<const literal<T>&>(rhs)._value;
         }
@@ -220,7 +248,10 @@ public:
     bool operator!=(const literal<T>& rhs)const{return !(*this == rhs);}
     bool operator==(const literal<T>& rhs)const{return _value == rhs._value;}
 
+    // Rewrite
     term_ptr<T> rewrite(Sub<T>&);
+
+    // Utilities
     bool find_path(path& p, term<T> &t);
     bool isLiteral( )const{return true;}
 
@@ -236,20 +267,19 @@ private:
 template<typename T>
 class function: public term<T>{
 public:
+    // Our constructors construct
     function(std::string __name, uint32_t __arity, std::vector<std::shared_ptr< term<T>>> __subterms );
     function( const function<T>& );
     function<T>& operator=(const function<T>&);
 
+    // Move Semantics
     function( const function<T>&&);
     function<T>& operator=(const function<T>&&);
 
-    std::string& name(){return _name;}
-    const std::string& name()const{ return _name; }
+    // Why yes we have children, would you like to see?
+    std::vector< term_ptr<T> >& children( ){return _subterms;}
 
-    std::vector< std::shared_ptr< term< T > > >& children( ){return _subterms;}
-    std::ostream& pp(std::ostream&) const;
-    term_ptr<T> clone() const{return std::make_shared<function>(*this);}
-
+    // Our Operators
     bool operator!=(const term<T>& rhs)const{return !(*this == rhs);}
     bool operator==(const term<T>& rhs)const{
         if(rhs.isFunction()){
@@ -260,16 +290,24 @@ public:
     bool operator!=(const function<T>& rhs)const{return !(*this == rhs);}
     bool operator==(const function<T>& rhs)const{return _name == rhs._name && _arity == rhs._arity && _subterms == rhs._subterms;}
 
+    // Rewrite
     term_ptr<T> rewrite(Sub<T> &);
 
+    // Utilities
     bool find_path(path& p, term<T>& t);
-
     bool isFunction( )const{return true;}
+    std::ostream& pp(std::ostream&) const;
+    term_ptr<T> clone() const{return std::make_shared<function>(*this);}
+
+    // Our getters
+    std::string& name(){return _name;}
+    const std::string& name()const{ return _name; }
 
 private:
     std::string _name;
+    // I literally never use this
     uint32_t _arity;
-    std::vector< std::shared_ptr< term<T> > > _subterms;
+    std::vector< term_ptr<T> > _subterms;
 };
 
 
@@ -286,20 +324,28 @@ term_ptr<T> term<T>::rewrite(term_ptr<T> rhs, path p, Sub<T> sigma){
     term_ptr<T> r = rhs->clone();
     // Rewrite the r now, and then screw sigma
     r = r->rewrite(sigma);
+
+    // Private recursive call
     return rewrite(t, r, p);
 }
 template<typename T>
 term_ptr<T> term<T>::rewrite(term_ptr<T> t, term_ptr<T> r, path p){
+    // If we get here our path is invalid
     if( p.empty() )
     {
         throw InvalidPathException();
     }
     auto pos = p.front();
+
+    // No need to iterate over this if we know now.
     if( pos == 0 || pos > t->children().size() ){
         throw InvalidPathException();
     }
     --pos;
     p.pop_front();
+
+    // Grab the child and replace 'em if this is it,
+    // Our call the next one
     auto child = t->children()[pos];
     if( p.empty() ){
         t->children()[pos] = r;
@@ -439,6 +485,8 @@ function<T>::function(const function<T>& c ):
     _arity{c._arity},
     _subterms{}
 {
+    // Remake our subterms as we don't want to point to
+    // things others are pointing to
     _subterms.reserve(c._subterms.size());
     for(auto& t :c._subterms ){
         _subterms.push_back(term_ptr<T>(t));
@@ -451,6 +499,8 @@ function<T>& function<T>::operator=(const function<T>& rhs)
     _name = rhs._name;
     _arity = rhs._arity;
 
+    // Remake our subterms as we don't want to point to
+    // things others are pointing to
     for(auto& t :rhs._subterms ){
         _subterms.push_back(term_ptr<T>(t));
     }
@@ -653,7 +703,6 @@ term_ptr<T> reduce(term_ptr<T> t, const std::vector<rule<T>>& rules)
     {
         Sub<T> sigma;
 
-        // Something wrong with this algorithm
         for(auto& subterm: *t){
             // Skip variables, we don't like 'em.
             if(subterm.isVariable())
