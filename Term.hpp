@@ -186,12 +186,19 @@ public:
 
     // Our operators
     bool operator!=(const term<T>& rhs)const {return !(*this == rhs);}
-    bool operator==(const term<T>& rhs)const{
-        if(rhs.isVariable()){
-            return *this == static_cast<const variable<T>&>(rhs);
+    bool operator==(const term<T>& rhs)const
+    {
+        if(rhs.isVariable())
+        {
+            // This is never called which is why I didn't realize the
+            // problem it will have
+            // Stupid double dispatch
+            //return *this == static_cast<const variable<T>&>(rhs);
+            return _var == static_cast<const variable<T>&>(rhs)._var;
         }
         return false;
     }
+    // These two are overshadowed by their more general counterparts
     bool operator!=(const variable<T>& rhs)const{return !(*this == rhs);}
     bool operator==(const variable<T>& rhs)const{return _var == rhs._var;}
 
@@ -237,14 +244,17 @@ public:
 
     // Our operators
     bool operator!=(const term<T>& rhs)const{return !(*this == rhs);}
-    bool operator==(const term<T>& rhs)const{
+    bool operator==(const term<T>& rhs)const
+    {
         if(rhs.isLiteral()){
             // Silly thing calls this function again
+            // Stupid double dispatch
             //return *this == static_cast<const literal<T>&>(rhs);
             return _value == static_cast<const literal<T>&>(rhs)._value;
         }
         return false;
     }
+    // These two are overshadowed by their more general counterparts
     bool operator!=(const literal<T>& rhs)const{return !(*this == rhs);}
     bool operator==(const literal<T>& rhs)const{return _value == rhs._value;}
 
@@ -281,12 +291,18 @@ public:
 
     // Our Operators
     bool operator!=(const term<T>& rhs)const{return !(*this == rhs);}
-    bool operator==(const term<T>& rhs)const{
-        if(rhs.isFunction()){
-            return *this == static_cast<const function<T>&>(rhs);
+    bool operator==(const term<T>& __rhs)const
+    {
+        const function<T>& rhs = static_cast<const function<T>&>(__rhs);
+        if(rhs.isFunction())
+        {
+            // Stupid double dispatch
+            //return *this == static_cast<const function<T>&>(rhs);
+            return _name == rhs._name && _arity == rhs._arity && _subterms == rhs._subterms;
         }
         return false;
     }
+    // These two are overshadowed by their more general counterparts
     bool operator!=(const function<T>& rhs)const{return !(*this == rhs);}
     bool operator==(const function<T>& rhs)const{return _name == rhs._name && _arity == rhs._arity && _subterms == rhs._subterms;}
 
@@ -319,7 +335,8 @@ private:
 /// rewrite & unify
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 template<typename T>
-term_ptr<T> term<T>::rewrite(term_ptr<T> rhs, path p, Sub<T> sigma){
+term_ptr<T> term<T>::rewrite(term_ptr<T> rhs, path p, Sub<T> sigma)
+{
     term_ptr<T> t = this->clone();
     term_ptr<T> r = rhs->clone();
     // Rewrite the r now, and then screw sigma
@@ -328,8 +345,18 @@ term_ptr<T> term<T>::rewrite(term_ptr<T> rhs, path p, Sub<T> sigma){
     // Private recursive call
     return rewrite(t, r, p);
 }
+
+/*!
+ * \brief Rewrites a term at the given path with the given rewrite
+ * \param term_ptr<T> t, the term to be rewritten
+ * \param term_ptr<T> r, the term to write
+ * \param term_ptr<T> p, the path to the term in t to be rewritten
+ *
+ * \return term_ptr<T> the term t after modifications, if any
+ */
 template<typename T>
-term_ptr<T> term<T>::rewrite(term_ptr<T> t, term_ptr<T> r, path p){
+term_ptr<T> term<T>::rewrite(term_ptr<T> t, term_ptr<T> r, path p)
+{
     // If we get here our path is invalid
     if( p.empty() )
     {
@@ -393,20 +420,25 @@ variable<T>& variable<T>::operator=(const variable<T>& rhs)
 }
 
 template<typename T>
-std::ostream& variable<T>::pp(std::ostream& out) const{
+std::ostream& variable<T>::pp(std::ostream& out) const
+{
     out << _var;
     return out;
 }
 
 template<typename T>
-term_ptr<T> variable<T>::rewrite(Sub<T>& sigma){
+term_ptr<T> variable<T>::rewrite(Sub<T>& sigma)
+{
     return sigma(_var).clone();
 }
 
 template<typename T>
-bool variable<T>::find_path(path& /*p*/, term<T> &t){
+bool variable<T>::find_path(path& /*p*/, term<T> &t)
+
+{
     bool found = false;
-    if(t.isVariable()){
+    if(t.isVariable())
+    {
         found = (*this == static_cast<variable<T>&>(t));
     }
     return found;
@@ -445,23 +477,28 @@ template<typename T>
 literal<T>& literal<T>::operator=(const literal<T>&& rhs )
 {
     this->_value = std::move(rhs._value);
+    return *this;
 }
 
 template<typename T>
-std::ostream& literal<T>::pp(std::ostream& out) const{
+std::ostream& literal<T>::pp(std::ostream& out) const
+{
     out << _value;
     return out;
 }
 
 template<typename T>
-term_ptr<T> literal<T>::rewrite(Sub<T> &){
+term_ptr<T> literal<T>::rewrite(Sub<T> &)
+{
     return this->clone();
 }
 
 template<typename T>
-bool literal<T>::find_path(path& /*p*/, term<T>& t){
+bool literal<T>::find_path(path& /*p*/, term<T>& t)
+{
     bool found = false;
-    if(t.isLiteral()){
+    if(t.isLiteral())
+    {
         found = (*this == static_cast<literal<T>&>(t));
     }
     return found;
@@ -504,6 +541,8 @@ function<T>& function<T>::operator=(const function<T>& rhs)
     for(auto& t :rhs._subterms ){
         _subterms.push_back(term_ptr<T>(t));
     }
+
+    return *this;
 }
 
 template<typename T>
@@ -520,13 +559,17 @@ function<T>& function<T>::operator=(const function<T>&& rhs )
     _name = rhs._name;
     _arity = rhs._arity;
     _subterms = rhs._subterms;
+
+    return *this;
 }
 
 
 template<typename T>
-std::ostream& function<T>::pp(std::ostream& out) const{
+std::ostream& function<T>::pp(std::ostream& out) const
+{
     out << _name << std::string(" ( ");
-    for( auto t = _subterms.begin(); t != _subterms.end(); ++t ){
+    for( auto t = _subterms.begin(); t != _subterms.end(); ++t )
+    {
         out << **t;
 
         // Get rid of that last damn ,
@@ -538,26 +581,35 @@ std::ostream& function<T>::pp(std::ostream& out) const{
 }
 
 template<typename T>
-term_ptr<T> function<T>::rewrite(Sub<T>& sigma){
-    for( auto&s : _subterms){
+term_ptr<T> function<T>::rewrite(Sub<T>& sigma)
+{
+    for( auto&s : _subterms)
+    {
         s = s->rewrite(sigma);
     }
     return this->clone();
 }
 
 template<typename T>
-bool function<T>::find_path(path& p, term<T> &t){
+bool function<T>::find_path(path& p, term<T> &t)
+{
     bool found = false;
-    if(t.isFunction()){
+    // Check if we are searching for ourself
+    if(t.isFunction())
+    {
         found = (*this == static_cast<function<T>&>(t));
     }
 
-    if( !found ){
+    // If it isn't us, maybe it's them
+    if( !found )
+    {
         uint32_t steps = 0;
-        for(auto& i: _subterms){
+        for(auto& i: _subterms)
+        {
             ++steps;
             found = i->find_path(p, t);
-            if(found){
+            if(found)
+            {
                 // Load from front as we'll be doing this on the way back
                 p.push_front(steps);
                 break;
@@ -585,15 +637,22 @@ term_iterator<T>::term_iterator(term<T>* __root, bool end , bool reverse):
     current_iterator{}
 {
     _loadpath(_root);
+    // Since iterator types are different for normal vector iterators and
+    // their reverse counterparts, we'll use a std algorithm to simply
+    // reverse our vector once its loaded, this way we keep the same
+    // iterators.
     if( reverse ){
         std::reverse(_path.begin(), _path.end());
     }
-    current_iterator = end? _path.end() : _path.begin();
+
+    // If we're making an end iterator, return the _paths end
+    current_iterator = end ? _path.end() : _path.begin();
 }
 
 template<typename T>
 void term_iterator<T>::_loadpath(term<T>* tptr )
 {
+    // recursively go through our tree in a depth first manner
     _path.push_back(tptr);
     for(auto& t: tptr->children()){
         _loadpath(t.get());
@@ -628,10 +687,26 @@ std::ostream& operator<<(std::ostream& out, const term<T>& rhs ){
     return out;
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Unify
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/*!
+ * \brief Unify t1 with t2 and put the rules into sigma, and return if unification was a success
+ * \param term<T>& t1 is a reference to the first term
+ * \param term<T>& t2 is a reference to the second term
+ * \param Sub& sigma is the substitution class for sigma
+ *
+ * \return bool if unification was successful
+ */
 template<typename T, typename Sub>
-bool unify(term<T>& t1, term<T>& t2, Sub& sigma){
+bool unify(term<T>& t1, term<T>& t2, Sub& sigma)
+{
 
+    // Because we can't reflect on which types these terms are,
+    // and inherited overloading with virtual functions only applies
+    // to the object being called and not to its arguments
+    // we hacked it with virtual functions to do reflection for us
     if( t1.isVariable() ){
         return unify(static_cast<variable<T>&>(t1), t2, sigma);
     }
@@ -648,12 +723,14 @@ bool unify(term<T>& t1, term<T>& t2, Sub& sigma){
 }
 
 template<typename T, typename Sub>
-bool unify(function<T>& t1, function<T>& t2, Sub& sigma){
+bool unify(function<T>& t1, function<T>& t2, Sub& sigma)
+{
     // iterate through both, probably recursively, then stuff the unification into the sigma.
-    // It is a set of rules, so we can put it into the sigma by using extend?
+    // It is a set of rules, so we can put it into the sigma by using extend.
 
     // We want to iterate over both at the same time.
 
+    // If they aren't the same, and their children are different sizes, then fail
     if( t1.name() != t2.name() || t1.children().size() != t2.children().size() ){
         return false;
     }
@@ -668,22 +745,21 @@ bool unify(function<T>& t1, function<T>& t2, Sub& sigma){
     return unifies;
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-/// Unify
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 template<typename T, typename Sub>
-bool unify(literal<T>& t1, literal<T>& t2, Sub& ){
+bool unify(literal<T>& t1, literal<T>& t2, Sub& )
+{
     return ( t1 == t2);
 }
 
 template<typename T, typename Sub>
-bool unify( variable<T>& t1, variable<T>& t2, Sub& sigma ){
+bool unify( variable<T>& t1, variable<T>& t2, Sub& sigma )
+{
     sigma.extend( t1.var(), t2);
     return true;
 }
 template<typename T, typename Sub>
-bool unify( variable<T>& t1, term<T>& t2, Sub& sigma ){
+bool unify( variable<T>& t1, term<T>& t2, Sub& sigma )
+{
     sigma.extend( t1.var(), t2.clone() );
     return true;
 }
@@ -692,22 +768,34 @@ bool unify( variable<T>& t1, term<T>& t2, Sub& sigma ){
 /// Reduce
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/*!
+ * \brief reduces the term by the given rules
+ *
+ * \param term_ptr<T> t is the term to be reduced
+ * \param std::vector<rule<T>& is a set of rules to do the reduction
+ *
+ * \return term_ptr<T> a copy of the term now rewritten
+ */
 template<typename T>
-term_ptr<T> reduce(term_ptr<T> t, const std::vector<rule<T>>& rules)
+term_ptr<T> reduce( const term_ptr<T> t, const std::vector<rule<T>>& rules)
 {
     term_ptr<T> ret = t->clone();
     // First unify the term with each rule
 
-    // We want to load the sigma with changes
+    // We want to load the sigma with changes, but only once per rule
     for(auto& r: rules)
     {
         Sub<T> sigma;
 
-        for(auto& subterm: *t){
+        for(auto& subterm: *ret)
+        {
             // Skip variables, we don't like 'em.
             if(subterm.isVariable())
+            {
                 continue;
-            if( unify( subterm, *(r.first), sigma) ){
+            }
+            if( unify( subterm, *(r.first), sigma) )
+            {
                 // Find path to here
 
                 path p;
@@ -715,7 +803,6 @@ term_ptr<T> reduce(term_ptr<T> t, const std::vector<rule<T>>& rules)
                 ret = ret->rewrite(r.second, p, sigma);
                 break;
             }
-             //subterm = r.second->clone();
         }
     }
 
